@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1] - 2026-04-10
+
+### Fixed
+- R/W lock now uses Lua scripts for atomic read-acquire/release operations
+- `ReliableQueue._ack()` uses direct `lrem` with raw payload instead of O(N) scan
+- `BloomFilter` and `IDGenerator` now accept configurable key prefix (default unchanged)
+
 ## [0.1.0] - 2026-04-09
 
 ### Added
