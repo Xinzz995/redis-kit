@@ -3,10 +3,10 @@
 from redis_kit.bloom import AsyncBloomFilter, BloomFilter
 from redis_kit.cache import AsyncCache, Cache, cached
 from redis_kit.compressors import ZlibCompressor
-from redis_kit.config import ConnectionConfig, NamespaceConfig
+from redis_kit.config import ClusterConfig, ConnectionConfig, NamespaceConfig, SentinelConfig
 from redis_kit.connection import ConnectionManager
 from redis_kit.counter import AsyncCounter, AsyncIDGenerator, Counter, IDGenerator
-from redis_kit.exceptions import FallbackPolicy, RedisKitError
+from redis_kit.exceptions import FallbackPolicy, RedisKitError, TopologyConstraintError
 from redis_kit.hooks import CompositeHook
 from redis_kit.lock import AsyncLock, Lock
 from redis_kit.observability import MetricsCollector
@@ -26,6 +26,8 @@ __all__ = [
     "ConnectionManager",
     "ConnectionConfig",
     "NamespaceConfig",
+    "SentinelConfig",
+    "ClusterConfig",
     # Cache
     "Cache",
     "AsyncCache",
@@ -62,5 +64,6 @@ __all__ = [
     "MetricsCollector",
     # Exceptions
     "RedisKitError",
+    "TopologyConstraintError",
     "FallbackPolicy",
 ]
