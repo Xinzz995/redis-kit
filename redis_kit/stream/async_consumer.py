@@ -64,8 +64,8 @@ class AsyncStreamConsumer:
         await self._client.xack(self._stream, self._group, msg_id)
 
     def _ack(self, msg_id: str) -> None:
-        """Sync ack - for StreamMessage.ack() compatibility. Use _async_ack for async."""
-        raise StreamError("Use 'await message.ack()' in async context. StreamMessage.ack() is sync-only.")
+        """Sync ack not supported for async consumer. Use message.async_ack() instead."""
+        raise StreamError("Use 'await message.async_ack()' in async context. StreamMessage.ack() is sync-only.")
 
     async def pending(self, count: int = 10, min_idle_ms: int = 0) -> list[dict]:
         result = await self._client.xpending_range(

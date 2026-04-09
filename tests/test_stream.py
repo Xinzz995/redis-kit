@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock
+
 import fakeredis
 import fakeredis.aioredis
 import pytest
@@ -20,6 +22,27 @@ class TestStreamMessage:
     def test_ack_without_consumer_raises(self):
         msg = StreamMessage(id="1-0", data={}, stream="s")
         with pytest.raises(StreamError):
+            msg.ack()
+
+    @pytest.mark.asyncio
+    async def test_async_ack_without_consumer_raises(self):
+        msg = StreamMessage(id="1-0", data={}, stream="s")
+        with pytest.raises(StreamError):
+            await msg.async_ack()
+
+    @pytest.mark.asyncio
+    async def test_async_ack_calls_consumer_async_ack(self):
+        mock_consumer = AsyncMock()
+        mock_consumer._async_ack = AsyncMock()
+        msg = StreamMessage(id="1-0", data={"k": "v"}, stream="s", _consumer=mock_consumer)
+        await msg.async_ack()
+        mock_consumer._async_ack.assert_called_once_with("1-0")
+
+    def test_sync_ack_on_async_consumer_raises_with_async_ack_hint(self):
+        client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        consumer = AsyncStreamConsumer(client, stream="s", group="g", consumer_name="c")
+        msg = StreamMessage(id="1-0", data={}, stream="s", _consumer=consumer)
+        with pytest.raises(StreamError, match="async_ack"):
             msg.ack()
 
 

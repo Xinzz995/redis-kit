@@ -19,3 +19,8 @@ class StreamMessage:
         if self._consumer is None:
             raise StreamError("Cannot ack: message not associated with a consumer")
         self._consumer._ack(self.id)
+
+    async def async_ack(self) -> None:
+        if self._consumer is None:
+            raise StreamError("Cannot ack: message not associated with a consumer")
+        await self._consumer._async_ack(self.id)
