@@ -61,6 +61,7 @@ class AsyncCache:
         ttl_jitter: float = 0.1,
         fallback_policy: FallbackPolicy | None = None,
         hooks: list[CommandHook] | None = None,
+        is_cluster: bool = False,
     ) -> None:
         self._client = client
         self._prefix = prefix
@@ -68,6 +69,7 @@ class AsyncCache:
         self._ttl_jitter = ttl_jitter
         self._fallback = fallback_policy or FallbackPolicy()
         self._hooks = hooks or []
+        self._is_cluster = is_cluster
 
     def _make_key(self, key: str) -> str:
         return f"{self._prefix}:{key}" if self._prefix else key
@@ -129,7 +131,10 @@ class AsyncCache:
 
     async def get_many(self, keys: list[str]) -> dict[str, Any]:
         full_keys = [self._make_key(k) for k in keys]
-        raw_values = await self._client.mget(full_keys)
+        if self._is_cluster:
+            raw_values = [await self._client.get(k) for k in full_keys]
+        else:
+            raw_values = await self._client.mget(full_keys)
         result = {}
         for key, raw in zip(keys, raw_values):
             val = self._pipeline.decode(raw)
@@ -138,15 +143,24 @@ class AsyncCache:
 
     async def set_many(self, mapping: dict[str, Any], ttl: str | int | None = None) -> None:
         resolved_ttl = self._resolve_ttl(ttl)
-        pipe = self._client.pipeline(transaction=False)
-        for key, value in mapping.items():
-            full_key = self._make_key(key)
-            encoded = self._pipeline.encode(value)
-            if resolved_ttl is not None and resolved_ttl > 0:
-                pipe.setex(full_key, resolved_ttl, encoded)
-            else:
-                pipe.set(full_key, encoded)
-        await pipe.execute()
+        if self._is_cluster:
+            for key, value in mapping.items():
+                full_key = self._make_key(key)
+                encoded = self._pipeline.encode(value)
+                if resolved_ttl is not None and resolved_ttl > 0:
+                    await self._client.setex(full_key, resolved_ttl, encoded)
+                else:
+                    await self._client.set(full_key, encoded)
+        else:
+            pipe = self._client.pipeline(transaction=False)
+            for key, value in mapping.items():
+                full_key = self._make_key(key)
+                encoded = self._pipeline.encode(value)
+                if resolved_ttl is not None and resolved_ttl > 0:
+                    pipe.setex(full_key, resolved_ttl, encoded)
+                else:
+                    pipe.set(full_key, encoded)
+            await pipe.execute()
 
     async def delete_pattern(self, pattern: str, batch_size: int = 100) -> int:
         full_pattern = self._make_key(pattern)
