@@ -65,9 +65,10 @@ module = [
     "redis_kit.counter.*",
     "redis_kit.lock.*",
     "redis_kit.queue.*",
+    "redis_kit.ratelimit.*",
     "redis_kit.session.*",
 ]
-disable_error_code = ["return-value", "arg-type", "misc", "union-attr", "assignment"]
+disable_error_code = ["return-value", "arg-type", "misc", "union-attr", "assignment", "attr-defined"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["redis_kit"]

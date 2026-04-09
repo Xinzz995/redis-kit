@@ -1,9 +1,9 @@
-import pytest
 import fakeredis
 import fakeredis.aioredis
+import pytest
 
-from redis_kit.ratelimit.decorator import rate_limit, parse_rate_dsl
 from redis_kit.exceptions import RateLimitExceeded
+from redis_kit.ratelimit.decorator import parse_rate_dsl, rate_limit
 
 
 class TestParseRateDsl:

@@ -1,7 +1,9 @@
+import fakeredis
 import pytest
 
-from redis_kit.ratelimit._result import RateLimitResult
 from redis_kit.exceptions import RateLimitExceeded, RedisKitError
+from redis_kit.ratelimit._result import RateLimitResult
+from redis_kit.ratelimit.token_bucket import TokenBucketLimiter
 
 
 class TestRateLimitResult:
@@ -30,11 +32,6 @@ class TestRateLimitExceeded:
         exc = RateLimitExceeded(r)
         assert exc.result is r
         assert "retry after 5.0s" in str(exc)
-
-
-import fakeredis
-
-from redis_kit.ratelimit.token_bucket import TokenBucketLimiter
 
 
 class TestTokenBucketLimiter:

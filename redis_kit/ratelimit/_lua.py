@@ -35,7 +35,9 @@ end
 redis.call("setex", tokens_key, ttl, new_tokens)
 redis.call("setex", ts_key, ttl, now)
 
-return {allowed and 1 or 0, capacity, math.floor(new_tokens), math.floor(retry_after * 1000), math.floor(reset_at * 1000)}
+local ra = math.floor(retry_after * 1000)
+local rst = math.floor(reset_at * 1000)
+return {allowed and 1 or 0, capacity, math.floor(new_tokens), ra, rst}
 """
 
 SLIDING_WINDOW_SCRIPT = """

@@ -5,14 +5,13 @@ import functools
 import inspect
 import re
 from collections.abc import Callable
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from redis_kit.exceptions import RateLimitExceeded
-from redis_kit.ratelimit._result import RateLimitResult
-from redis_kit.ratelimit.sliding_window import SlidingWindowLimiter
-from redis_kit.ratelimit.token_bucket import TokenBucketLimiter
 from redis_kit.ratelimit.async_sliding_window import AsyncSlidingWindowLimiter
 from redis_kit.ratelimit.async_token_bucket import AsyncTokenBucketLimiter
+from redis_kit.ratelimit.sliding_window import SlidingWindowLimiter
+from redis_kit.ratelimit.token_bucket import TokenBucketLimiter
 
 if TYPE_CHECKING:
     import redis
