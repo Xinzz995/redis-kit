@@ -42,13 +42,19 @@ class AsyncPubSub:
     async def listen(self) -> None:
         async for message in self._pubsub.listen():
             if message["type"] in ("message", "pmessage"):
-                channel = message.get("channel", b"")
-                if isinstance(channel, bytes):
-                    channel = channel.decode()
-                handler = self._handlers.get(channel)
-                if handler:
-                    data = json.loads(message["data"])
-                    handler(data)
+                try:
+                    if message["type"] == "pmessage":
+                        lookup_key = message.get("pattern", b"")
+                    else:
+                        lookup_key = message.get("channel", b"")
+                    if isinstance(lookup_key, bytes):
+                        lookup_key = lookup_key.decode()
+                    handler = self._handlers.get(lookup_key)
+                    if handler:
+                        data = json.loads(message["data"])
+                        handler(data)
+                except Exception:
+                    pass
 
     async def close(self) -> None:
         await self._pubsub.aclose()
