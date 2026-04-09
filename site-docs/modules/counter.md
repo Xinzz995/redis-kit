@@ -1,6 +1,6 @@
-# Counter & ID Generator
+# 计数器与 ID 生成器
 
-## Counter
+## 计数器
 
 ```python
 from redis_kit import Counter
@@ -14,7 +14,7 @@ value = counter.get("page_views")
 counter.reset("page_views")
 ```
 
-### Bound Counter
+### 有界计数器（Bound Counter）
 
 ```python
 pv = counter.bind("page_views")
@@ -23,7 +23,7 @@ pv.get()
 pv.reset()
 ```
 
-## ID Generator
+## ID 生成器
 
 ```python
 from redis_kit import IDGenerator

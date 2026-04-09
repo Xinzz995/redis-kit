@@ -1,12 +1,12 @@
-# Installation
+# 安装
 
-## Basic
+## 基本安装
 
 ```bash
 pip install redis-py-kit
 ```
 
-## Optional Extras
+## 可选依赖
 
 ```bash
 pip install redis-py-kit[msgpack]     # MessagePack serializer
@@ -16,7 +16,7 @@ pip install redis-py-kit[otel]        # OpenTelemetry integration
 pip install redis-py-kit[all]         # All optional dependencies
 ```
 
-## Requirements
+## 环境要求
 
 - Python >= 3.11
 - Redis >= 7.0

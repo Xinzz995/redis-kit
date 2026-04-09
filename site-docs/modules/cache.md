@@ -1,8 +1,8 @@
-# Cache
+# 缓存
 
-Redis cache with serialization, compression, TTL jitter, and fallback policy.
+Redis 缓存，支持序列化、压缩、TTL 抖动和降级策略（FallbackPolicy）。
 
-## Basic Usage
+## 基本用法
 
 ```python
 from redis_kit import Cache, ConnectionManager
@@ -15,7 +15,7 @@ user = cache.get("user:1")
 cache.delete("user:1")
 ```
 
-## TTL Management
+## TTL 管理
 
 ```python
 cache.set("key", "value", ttl=3600)
@@ -25,22 +25,22 @@ cache.persist("key")      # Remove expiration
 cache.expire("key", 600)  # Reset TTL
 ```
 
-Supports string TTL format: `"2h30m"`, `"1d"`, `"30s"`.
+支持字符串格式的 TTL：`"2h30m"`、`"1d"`、`"30s"`。
 
-## Cache-Aside Pattern
+## Cache-Aside 模式
 
 ```python
 user = cache.remember("user:1", factory=load_from_db, ttl=3600)
 ```
 
-## Batch Operations
+## 批量操作
 
 ```python
 cache.set_many({"a": 1, "b": 2, "c": 3}, ttl=3600)
 values = cache.get_many(["a", "b", "c"])
 ```
 
-## Pattern Operations (SCAN-based)
+## 模式匹配操作（基于 SCAN）
 
 ```python
 cache.delete_pattern("user:*")
@@ -48,7 +48,7 @@ for key in cache.iter_keys("user:*"):
     print(key)
 ```
 
-## Bound Operations
+## 绑定操作（Bound Operations）
 
 ```python
 user_cache = cache.bind("user:1")
@@ -57,7 +57,7 @@ user_cache.get()
 user_cache.ttl()
 ```
 
-## @cached Decorator
+## @cached 装饰器
 
 ```python
 from redis_kit import cached
@@ -72,7 +72,7 @@ async def get_product(pid: int) -> dict:
     return await db.query_product(pid)
 ```
 
-### Callable Key/TTL/Bypass
+### 可调用的 Key/TTL/Bypass
 
 ```python
 @cached(
@@ -85,13 +85,13 @@ def get_user(uid: int, force: bool = False) -> dict:
     ...
 ```
 
-## Anti-Penetration (None Caching)
+## 防穿透（None 缓存）
 
 ```python
 cache.set("user:999", None, ttl=60)  # Cache None to prevent penetration
 ```
 
-## TTL Jitter (Anti-Avalanche)
+## TTL 抖动（防雪崩）
 
 ```python
 cache = Cache(conn.sync_client, prefix="myapp", ttl_jitter=0.1)  # +/- 10% random TTL

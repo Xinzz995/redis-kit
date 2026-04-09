@@ -1,6 +1,6 @@
-# Queue
+# 消息队列
 
-PubSub, DelayQueue, and ReliableQueue.
+包含 PubSub、延迟队列（DelayQueue）和可靠队列（ReliableQueue）。
 
 ## PubSub
 
@@ -17,9 +17,9 @@ pubsub.subscribe("events", handler)
 pubsub.listen()
 ```
 
-## Delay Queue
+## 延迟队列（Delay Queue）
 
-Sorted Set-based queue with delayed execution.
+基于 Sorted Set 的延迟执行队列。
 
 ```python
 from redis_kit import DelayQueue
@@ -29,9 +29,9 @@ dq.put({"order_id": 123}, delay=1800)  # Execute in 30 minutes
 messages = dq.poll(count=10)            # Get ready messages
 ```
 
-## Reliable Queue
+## 可靠队列（Reliable Queue）
 
-List-based queue with LMOVE + ack/nack.
+基于 List 的队列，使用 LMOVE + ack/nack 机制。
 
 ```python
 from redis_kit import ReliableQueue
@@ -47,5 +47,5 @@ except Exception:
     msg.nack()  # Return to queue
 ```
 
-!!! tip "Consider Redis Streams"
-    For new projects, consider using [Redis Streams](streams.md) instead of ReliableQueue. Streams offer consumer groups, message persistence, and dead letter recovery.
+!!! tip "建议考虑 Redis Streams"
+    对于新项目，建议使用 [Redis Streams](streams.md) 代替 ReliableQueue。Streams 提供消费者组、消息持久化和死信恢复等功能。

@@ -1,10 +1,10 @@
-# Rate Limiter
+# 限流器
 
-Distributed rate limiting with token bucket and sliding window algorithms.
+基于令牌桶和滑动窗口算法的分布式限流。
 
-## Token Bucket
+## 令牌桶（Token Bucket）
 
-Smooth traffic with burst tolerance.
+平滑流量，支持突发容忍。
 
 ```python
 from redis_kit import TokenBucketLimiter
@@ -16,9 +16,9 @@ if not result.allowed:
     print(f"Rate limited, retry after {result.retry_after:.1f}s")
 ```
 
-## Sliding Window
+## 滑动窗口（Sliding Window）
 
-Strict counting within a time window.
+在时间窗口内进行严格计数。
 
 ```python
 from redis_kit import SlidingWindowLimiter
@@ -37,9 +37,9 @@ result.retry_after  # Seconds to wait (if rejected)
 result.reset_at     # Window reset timestamp
 ```
 
-Maps to HTTP headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After`, `X-RateLimit-Reset`.
+映射到 HTTP 响应头：`X-RateLimit-Limit`、`X-RateLimit-Remaining`、`Retry-After`、`X-RateLimit-Reset`。
 
-## @rate_limit Decorator
+## @rate_limit 装饰器
 
 ```python
 from redis_kit import rate_limit
@@ -54,6 +54,6 @@ async def get_product(uid: int) -> dict:
     return await db.query_product(uid)
 ```
 
-Supported DSL formats: `"100/minute"`, `"10/second"`, `"1000/hour"`, `"10000/day"`.
+支持的 DSL 格式：`"100/minute"`、`"10/second"`、`"1000/hour"`、`"10000/day"`。
 
-On rejection, raises `RateLimitExceeded` with `.result` attribute.
+被拒绝时抛出 `RateLimitExceeded` 异常，包含 `.result` 属性。

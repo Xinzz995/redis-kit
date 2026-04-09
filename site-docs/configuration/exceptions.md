@@ -1,6 +1,6 @@
-# Exception Handling
+# 异常处理
 
-## Hierarchy
+## 异常层次结构
 
 ```
 RedisKitError
@@ -24,9 +24,9 @@ RedisKitError
     └── OptimisticLockError
 ```
 
-## FallbackPolicy
+## 降级策略（FallbackPolicy）
 
-Configurable degradation for Redis failures.
+可配置的 Redis 故障降级策略。
 
 ```python
 from redis_kit import FallbackPolicy, Cache
@@ -38,10 +38,10 @@ policy = FallbackPolicy(
 cache = Cache(conn.sync_client, fallback_policy=policy)
 ```
 
-### Modes
+### 模式
 
-| Mode | Behavior |
-|------|----------|
-| `"raise"` (default) | Re-raise the exception |
-| `"return_none"` | Swallow error, return None |
-| `"callback"` | Call `fallback` function and return its result |
+| 模式 | 行为 |
+|------|------|
+| `"raise"`（默认） | 重新抛出异常 |
+| `"return_none"` | 吞掉错误，返回 None |
+| `"callback"` | 调用 `fallback` 函数并返回其结果 |

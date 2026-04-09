@@ -1,8 +1,8 @@
-# Topology Support
+# 拓扑支持
 
-Switch between Standalone, Sentinel, and Cluster by changing the Config object.
+通过更换 Config 对象即可在单机（Standalone）、哨兵（Sentinel）和集群（Cluster）之间切换。
 
-## Standalone (default)
+## 单机模式（默认）
 
 ```python
 from redis_kit import ConnectionManager, ConnectionConfig
@@ -12,9 +12,9 @@ conn = ConnectionManager(config=ConnectionConfig(host="localhost", port=6379))
 conn = ConnectionManager(url="redis://localhost:6379/0")
 ```
 
-## Sentinel
+## 哨兵模式（Sentinel）
 
-Automatic failover — upstream modules unaware.
+自动故障转移 —— 上层模块无感知。
 
 ```python
 from redis_kit import ConnectionManager, SentinelConfig
@@ -28,9 +28,9 @@ conn = ConnectionManager(config=SentinelConfig(
 cache = Cache(conn.sync_client, prefix="myapp:cache")
 ```
 
-## Cluster
+## 集群模式（Cluster）
 
-Data sharding across multiple masters.
+跨多个主节点进行数据分片。
 
 ```python
 from redis_kit import ConnectionManager, ClusterConfig, Cache, Lock
@@ -45,15 +45,15 @@ cache = Cache(conn.sync_client, prefix="myapp:cache", is_cluster=conn.is_cluster
 lock = Lock(conn.sync_client, prefix="myapp:lock", is_cluster=conn.is_cluster)
 ```
 
-### Cluster Adaptations
+### 集群适配
 
-| Feature | Behavior |
-|---------|----------|
-| `get_many` / `set_many` | Auto-degrade to individual operations |
-| Lock keys | Wrapped in `{hash_tag}` for Lua script slot safety |
-| `delete_pattern` / `iter_keys` | `scan_iter` works across all nodes |
+| 功能 | 行为 |
+|------|------|
+| `get_many` / `set_many` | 自动降级为单条操作 |
+| 锁的 Key | 使用 `{hash_tag}` 包裹，确保 Lua 脚本的 slot 安全 |
+| `delete_pattern` / `iter_keys` | `scan_iter` 在所有节点上执行 |
 
-## Topology Detection
+## 拓扑检测
 
 ```python
 conn.topology    # "standalone" | "sentinel" | "cluster"

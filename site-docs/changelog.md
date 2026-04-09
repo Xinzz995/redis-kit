@@ -1,3 +1,3 @@
-# Changelog
+# 更新日志
 
-See [CHANGELOG.md on GitHub](https://github.com/Xinzz995/redis-kit/blob/main/CHANGELOG.md) for the full version history.
+完整版本历史请参阅 [GitHub 上的 CHANGELOG.md](https://github.com/Xinzz995/redis-kit/blob/main/CHANGELOG.md)。

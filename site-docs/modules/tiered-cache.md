@@ -1,8 +1,8 @@
-# Tiered Cache
+# 多级缓存
 
-Two-tier cache: L1 (local LRU) + L2 (Redis). Zero external dependencies.
+两级缓存架构：L1（本地 LRU）+ L2（Redis），无需额外外部依赖。
 
-## Usage
+## 用法
 
 ```python
 from redis_kit import Cache, ConnectionManager
@@ -19,31 +19,31 @@ cache = TieredCache(
 )
 ```
 
-## Read Path
+## 读取路径
 
-1. Check L1 (local) -- instant, no network
-2. If miss, check L2 (Redis)
-3. If L2 hit, **backfill L1** automatically
-4. If both miss, write **negative cache** to L1 (prevents repeated L2 misses)
+1. 检查 L1（本地缓存）—— 即时响应，无网络开销
+2. 若未命中，检查 L2（Redis）
+3. 若 L2 命中，**自动回填 L1**
+4. 若两级均未命中，将**空值缓存（Negative Cache）**写入 L1（防止重复穿透 L2）
 
-## Write Path
+## 写入路径
 
-**Write-through**: `set()` writes both L1 and L2 simultaneously.
+**写穿透（Write-through）**：`set()` 同时写入 L1 和 L2。
 
 ```python
 cache.set("user:1", data, ttl=3600)   # L1 + L2
 user = cache.get("user:1")             # L1 hit
 ```
 
-## Batch Operations
+## 批量操作
 
-`get_many` queries L1 first, only missed keys go to L2:
+`get_many` 先查询 L1，仅将未命中的 key 发往 L2：
 
 ```python
 data = cache.get_many(["user:1", "user:2", "user:3"])
 ```
 
-## Local Cache Management
+## 本地缓存管理
 
 ```python
 cache.invalidate_local("user:1")   # Clear one key from L1
@@ -51,7 +51,7 @@ cache.clear_local()                 # Clear all L1
 print(cache.local_size)             # Current L1 entry count
 ```
 
-## Async
+## 异步用法
 
 ```python
 from redis_kit.cache import AsyncTieredCache

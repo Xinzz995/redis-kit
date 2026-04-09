@@ -1,8 +1,8 @@
 # Repository
 
-Dataclass entity storage with versioning, soft delete, audit, and history.
+Dataclass 实体存储，支持版本控制、软删除、审计和历史记录。
 
-## Define Entity
+## 定义实体
 
 ```python
 from dataclasses import dataclass
@@ -15,9 +15,9 @@ class AppConfig(BaseModel):
     env: str = "production"
 ```
 
-`BaseModel` provides: `id`, `version`, `created_at`, `updated_at`, `deleted`, `deleted_at`.
+`BaseModel` 提供以下字段：`id`、`version`、`created_at`、`updated_at`、`deleted`、`deleted_at`。
 
-## CRUD
+## CRUD 操作
 
 ```python
 from redis_kit import Repository
@@ -38,7 +38,7 @@ updated = repo.save(found)  # version 1 → 2
 all_configs = repo.find_all()
 ```
 
-## Optimistic Locking
+## 乐观锁（Optimistic Locking）
 
 ```python
 stale = repo.find(config.id)    # version=2
@@ -49,7 +49,7 @@ stale.value = "20"
 repo.save(stale)                  # OptimisticLockError! (expected 2, actual 3)
 ```
 
-## Soft Delete
+## 软删除
 
 ```python
 repo.delete(config.id)                       # deleted=True, deleted_at set
@@ -59,7 +59,7 @@ repo.restore(config.id)                      # Recovered
 repo.hard_delete(config.id)                  # Permanently removed
 ```
 
-## Version History
+## 版本历史
 
 ```python
 history = repo.get_history(config.id)  # [v2, v1] — all previous versions
@@ -67,7 +67,7 @@ for version in history:
     print(f"v{version.version}: {version.value}")
 ```
 
-## Async
+## 异步用法
 
 ```python
 from redis_kit import AsyncRepository

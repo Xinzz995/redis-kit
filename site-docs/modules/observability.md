@@ -1,4 +1,4 @@
-# Observability
+# 可观测性
 
 ## MetricsCollector
 
@@ -16,7 +16,7 @@ metrics.latency_stats()  # {"count": N, "avg": X, "min": Y, "max": Z}
 
 ## OpenTelemetry
 
-Requires `pip install redis-py-kit[otel]`.
+需要安装 `pip install redis-py-kit[otel]`。
 
 ```python
 from redis_kit.observability import OpenTelemetryHook
@@ -26,9 +26,9 @@ cache = Cache(conn.sync_client, hooks=[hook])
 # Every Redis operation creates an OTel span
 ```
 
-## CommandHook Protocol
+## CommandHook 协议
 
-Create custom hooks:
+创建自定义 Hook：
 
 ```python
 class MyHook:
@@ -39,7 +39,7 @@ class MyHook:
 
 ## CompositeHook
 
-Chain multiple hooks:
+链式组合多个 Hook：
 
 ```python
 from redis_kit import CompositeHook

@@ -1,8 +1,8 @@
 # Redis Streams
 
-Consumer group abstraction over Redis Streams.
+基于 Redis Streams 的消费者组抽象。
 
-## Producer
+## 生产者
 
 ```python
 from redis_kit import StreamProducer
@@ -12,7 +12,7 @@ msg_id = producer.add({"order_id": "123", "status": "created"})
 print(producer.len())
 ```
 
-## Consumer — Auto ACK
+## 消费者 — 自动 ACK
 
 ```python
 from redis_kit import StreamConsumer
@@ -29,7 +29,7 @@ for message in consumer.listen(count=10, block=5000):
     # Auto-ACK after each iteration
 ```
 
-## Consumer — Manual ACK
+## 消费者 — 手动 ACK
 
 ```python
 consumer = StreamConsumer(
@@ -47,7 +47,7 @@ for message in consumer.listen(count=10, block=5000):
         pass  # Recover via claim_stale later
 ```
 
-## Dead Letter Recovery
+## 死信恢复
 
 ```python
 stale = consumer.claim_stale(min_idle_ms=60000, count=10)
@@ -56,7 +56,7 @@ for msg in stale:
     msg.ack()
 ```
 
-## Pending Messages
+## 待处理消息
 
 ```python
 pending = consumer.pending(count=10)
@@ -64,7 +64,7 @@ for entry in pending:
     print(f"{entry['id']} idle {entry['idle_ms']}ms, delivered {entry['delivery_count']} times")
 ```
 
-## Async
+## 异步用法
 
 ```python
 from redis_kit import AsyncStreamProducer, AsyncStreamConsumer
