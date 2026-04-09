@@ -25,6 +25,12 @@
 | Phase 4: 可观测性 | Task 15 (metrics, otel) | done |
 | Phase 5: 集成 | Task 16 (public API exports) | done |
 
+## 2026-04-09: Code Review 完成
+- 完成全局代码审查，发现 3 个关键问题 + 7 个重要问题 + 6 个次要问题
+- 修复了全部关键问题和大部分重要问题
+- 148 测试仍全部通过
+- ruff lint/format 全通过
+
 ## 当前状态
-- **阶段**: v1 实施完成
-- **下一步**: Code Review / 发布准备
+- **阶段**: v1 实施 + Review 完成
+- **下一步**: 等待用户指示（发布 / PR / 追加功能）

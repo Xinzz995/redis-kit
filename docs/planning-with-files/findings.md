@@ -32,3 +32,24 @@
 ### ruff UP035 规则
 - Python 3.11+ 项目中，ruff 要求将 `Callable`, `Iterator`, `AsyncIterator` 等从 `collections.abc` 导入而非 `typing`
 - 所有模块已统一使用 `from collections.abc import Callable` 等
+
+## 2026-04-09: Code Review 发现与修复
+
+### 已修复的关键问题
+1. **Redis 7 兼容性**: `rpoplpush`/`brpoplpush` 已废弃 → 替换为 `lmove`/`blmove`
+2. **`_NONE_MARKER` 兼容性**: 增加字符串变体 `_NONE_MARKER_STR`，兼容 `decode_responses=True`
+3. **`AsyncCache.remember()` 异步工厂**: 增加 `asyncio.iscoroutine()` 检测，支持 async factory
+
+### 已修复的重要问题
+4. **`@cached` 的 `lock=True` 未实现**: 移除该参数，不广告未实现的功能
+5. **`@cached` 无 prefix**: 增加 `prefix` 参数
+6. **导出缺失**: `CompositeHook` 和 `MetricsCollector` 已添加到顶层导出
+7. **`AsyncPubSub.listen()` 缺失**: 已添加 async listen 方法
+8. **TTL=0 真值性 bug**: `if resolved_ttl:` → `if resolved_ttl is not None and resolved_ttl > 0:`
+
+### 未修复的已知问题（可在后续版本优化）
+- R/W lock 的 `hincrby` + `expire` 非原子操作（需 Lua 脚本优化）
+- `ReliableQueue._ack()` O(N) 线性扫描（可用 hash 优化）
+- `BloomFilter`/`IDGenerator` 硬编码 key 前缀（不影响功能，但与其他模块不一致）
+- `OpenTelemetryHook.after()` span 时间点不精确
+- `SessionManager.update()` 不自动刷新 TTL
