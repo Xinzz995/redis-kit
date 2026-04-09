@@ -1,5 +1,5 @@
 [project]
-name = "redis-kit"
+name = "redis-py-kit"
 version = "0.1.0"
 description = "Enterprise-grade Python Redis toolkit"
 readme = "README.md"
@@ -34,7 +34,7 @@ msgpack = ["msgpack>=1.0"]
 lz4 = ["lz4>=4.0"]
 zstd = ["zstandard>=0.20"]
 otel = ["opentelemetry-api>=1.20", "opentelemetry-sdk>=1.20"]
-all = ["redis-kit[msgpack,lz4,zstd,otel]"]
+all = ["redis-py-kit[msgpack,lz4,zstd,otel]"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4", "fakeredis[lua]>=2.21"]
 
 [tool.pytest.ini_options]
@@ -47,6 +47,9 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["redis_kit"]
 
 [build-system]
 requires = ["hatchling"]
