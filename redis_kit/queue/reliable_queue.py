@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from redis_kit.exceptions import QueueEmptyError
+from redis_kit.queue._lua import NACK_SCRIPT
 
 if TYPE_CHECKING:
     import redis
@@ -35,6 +36,7 @@ class ReliableQueue:
         base = f"{prefix}:{name}" if prefix else name
         self._queue_key = f"{base}:queue"
         self._processing_key = f"{base}:processing"
+        self._nack_script = self._client.register_script(NACK_SCRIPT)
 
     def put(self, data: Any) -> None:
         msg_id = uuid.uuid4().hex[:12]
@@ -55,8 +57,12 @@ class ReliableQueue:
         self._client.lrem(self._processing_key, 1, raw)
 
     def _nack(self, raw: bytes, data: Any) -> None:
-        self._ack(raw)
-        self.put(data)
+        msg = json.loads(raw)
+        payload = json.dumps({"id": msg["id"], "data": data}).encode("utf-8")
+        self._nack_script(
+            keys=[self._processing_key, self._queue_key],
+            args=[raw, payload],
+        )
 
     def size(self) -> int:
         return self._client.llen(self._queue_key)
