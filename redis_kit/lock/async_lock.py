@@ -25,9 +25,10 @@ if TYPE_CHECKING:
 class AsyncLock:
     """Async Redis distributed lock with async context manager support."""
 
-    def __init__(self, client: redis.asyncio.Redis, prefix: str = "") -> None:
+    def __init__(self, client: redis.asyncio.Redis, prefix: str = "", is_cluster: bool = False) -> None:
         self._client = client
         self._prefix = prefix
+        self._is_cluster = is_cluster
         self._release_script = self._client.register_script(RELEASE_LOCK)
         self._reentrant_acquire_script = self._client.register_script(REENTRANT_ACQUIRE)
         self._reentrant_release_script = self._client.register_script(REENTRANT_RELEASE)
@@ -38,7 +39,10 @@ class AsyncLock:
         self._write_acquire_script = self._client.register_script(WRITE_ACQUIRE)
 
     def _make_key(self, name: str) -> str:
-        return f"{self._prefix}:{name}" if self._prefix else name
+        base = f"{self._prefix}:{name}" if self._prefix else name
+        if self._is_cluster:
+            return f"{{{base}}}"
+        return base
 
     @asynccontextmanager
     async def __call__(
