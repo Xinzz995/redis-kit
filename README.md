@@ -14,6 +14,9 @@ Enterprise-grade Python Redis toolkit with sync/async dual-mode APIs.
 - **Bloom Filter** — SHA-256 multi-hash, pipeline-based bit operations, configurable false positive rate
 - **Counter & ID Generator** — Atomic INCR/DECR, BoundCounter, zero-padded ID generation
 - **Session Manager** — Redis Hash per session, CRUD, TTL refresh, custom ID generator
+- **Rate Limiter** — Token bucket (burst-tolerant) and sliding window (exact count), Lua-scripted, `@rate_limit` decorator
+- **Tiered Cache** — L1 local LRU + L2 Redis, read-through backfill, negative caching, zero dependencies
+- **Redis Streams** — Consumer groups with auto/manual ACK, dead letter recovery (XAUTOCLAIM)
 - **Observability** — MetricsCollector hook, OpenTelemetry integration (optional)
 - **Pluggable Serialization** — JSON (default), Pickle, MessagePack (optional)
 - **Pluggable Compression** — Zlib, Zstandard (optional), LZ4 (optional)
@@ -197,6 +200,105 @@ hook = OpenTelemetryHook(service_name="myapp")
 cache = Cache(conn.sync_client, hooks=[hook])
 ```
 
+### Rate Limiter
+
+```python
+from redis_kit import TokenBucketLimiter, SlidingWindowLimiter, rate_limit
+
+# Token bucket — smooth traffic, allow bursts
+limiter = TokenBucketLimiter(conn.sync_client, rate=10, capacity=50)
+result = limiter.acquire("user:123")
+# result.allowed, result.remaining, result.retry_after, result.reset_at
+
+# Sliding window — strict counting
+limiter = SlidingWindowLimiter(conn.sync_client, limit=100, window=60)
+result = limiter.acquire("user:123")
+
+if not result.allowed:
+    print(f"Rate limited, retry after {result.retry_after:.1f}s")
+
+# Decorator with DSL
+@rate_limit(conn.sync_client, key="api:{user_id}", limit="100/minute")
+def get_user(user_id: int) -> dict:
+    return db.query_user(user_id)
+
+# Async (auto-detected)
+@rate_limit(conn.sync_client, key="api:{uid}", limit="10/second", algorithm="token_bucket")
+async def get_product(uid: int) -> dict:
+    return await db.query_product(uid)
+```
+
+### Tiered Cache
+
+```python
+from redis_kit import Cache
+from redis_kit.cache import TieredCache
+
+redis_cache = Cache(conn.sync_client, prefix="myapp:cache")
+
+# Wrap with local LRU layer
+cache = TieredCache(
+    redis_cache,
+    local_maxsize=2000,   # L1: max 2000 entries
+    local_ttl=30.0,       # L1: 30s TTL
+    negative_ttl=5.0,     # Cache misses for 5s (anti-penetration)
+)
+
+cache.set("user:1", data, ttl=3600)   # Write-through: L1 + L2
+user = cache.get("user:1")             # L1 hit — skip Redis
+user = cache.get("nonexistent")        # L1 miss → L2 miss → negative cached
+
+# Batch: L1 first, only misses go to L2
+data = cache.get_many(["user:1", "user:2", "user:3"])
+
+# Local cache management
+cache.invalidate_local("user:1")
+cache.clear_local()
+print(f"Local entries: {cache.local_size}")
+```
+
+### Redis Streams
+
+```python
+from redis_kit import StreamProducer, StreamConsumer
+
+# Producer
+producer = StreamProducer(conn.sync_client, stream="orders", maxlen=10000)
+producer.add({"order_id": "123", "status": "created"})
+
+# Consumer — auto ACK
+consumer = StreamConsumer(
+    conn.sync_client, stream="orders",
+    group="processor", consumer_name="worker-1",
+    auto_ack=True,
+)
+consumer.ensure_group()
+
+for message in consumer.listen(count=10, block=5000):
+    process(message.data)  # Auto-ACK after iteration
+
+# Manual ACK mode
+consumer = StreamConsumer(
+    conn.sync_client, stream="orders",
+    group="processor", consumer_name="worker-2",
+    auto_ack=False,
+)
+consumer.ensure_group()
+
+for message in consumer.listen(count=10, block=5000):
+    try:
+        process(message.data)
+        message.ack()
+    except Exception:
+        pass  # Recover via claim_stale later
+
+# Dead letter recovery
+stale = consumer.claim_stale(min_idle_ms=60000, count=10)
+for msg in stale:
+    handle_dead_letter(msg)
+    msg.ack()
+```
+
 ### Async Usage
 
 Every module has an async counterpart:
@@ -307,8 +409,10 @@ RedisKitError
 ├── QueueError
 │   └── QueueEmptyError
 ├── BloomFilterError
-└── SessionError
-    └── SessionNotFoundError
+├── SessionError
+│   └── SessionNotFoundError
+├── RateLimitExceeded
+└── StreamError
 ```
 
 ## Requirements
