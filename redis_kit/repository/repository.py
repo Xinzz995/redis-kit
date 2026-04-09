@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import types
+import typing
 import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, TypeVar
 
 from redis_kit.exceptions import EntityNotFoundError, OptimisticLockError
-from redis_kit.repository._lua import OPTIMISTIC_LOCK_CHECK
+from redis_kit.repository._lua import OPTIMISTIC_LOCK_SET
 from redis_kit.repository.model import BaseModel
 
 if TYPE_CHECKING:
@@ -23,7 +25,7 @@ class Repository:
         self._client = client
         self._model_class = model_class
         self._prefix = prefix
-        self._lock_script = self._client.register_script(OPTIMISTIC_LOCK_CHECK)
+        self._lock_set_script = self._client.register_script(OPTIMISTIC_LOCK_SET)
         self._index_key = f"{self._prefix}:_index" if self._prefix else "_index"
 
     def _make_key(self, entity_id: str) -> str:
@@ -53,18 +55,30 @@ class Repository:
             val = v.decode() if isinstance(v, bytes) else v
             decoded[key] = val
 
+        try:
+            hints = typing.get_type_hints(self._model_class)
+        except Exception:
+            hints = {}
+
         kwargs = {}
         for f in dataclasses.fields(self._model_class):
             raw = decoded.get(f.name)
+            ftype = hints.get(f.name, f.type)
+            # Unwrap Optional/Union (e.g. int | None -> int)
+            origin = typing.get_origin(ftype)
+            if origin is types.UnionType or origin is typing.Union:
+                args = [a for a in typing.get_args(ftype) if a is not type(None)]
+                ftype = args[0] if args else ftype
+
             if raw is None or raw == "__NONE__":
                 kwargs[f.name] = None if raw == "__NONE__" else f.default
-            elif f.type in ("int", int):
+            elif ftype is int:
                 kwargs[f.name] = int(raw)
-            elif f.type in ("float", float):
+            elif ftype is float:
                 kwargs[f.name] = float(raw)
-            elif f.type in ("bool", bool):
+            elif ftype is bool:
                 kwargs[f.name] = raw == "1"
-            elif f.type in ("datetime | None", "datetime"):
+            elif ftype is datetime:
                 kwargs[f.name] = datetime.fromisoformat(raw) if raw != "__NONE__" else None
             else:
                 kwargs[f.name] = raw
@@ -83,12 +97,9 @@ class Repository:
                 updated_at=now,
             )
         else:
-            # Update existing — optimistic lock check
+            # Update existing — atomic optimistic lock check + write
             key = self._make_key(entity.id)
-            allowed = self._lock_script(keys=[key], args=[str(entity.version)])
-            if not allowed:
-                raise OptimisticLockError(f"Version conflict for entity '{entity.id}': expected {entity.version}")
-            # Save current version to history
+            # Save current version to history before atomic update
             existing_data = self._client.hgetall(key)
             if existing_data:
                 old_entity = self._from_hash(existing_data)
@@ -100,6 +111,17 @@ class Repository:
                 version=entity.version + 1,
                 updated_at=now,
             )
+            hash_data = self._to_hash(entity)
+            # Flatten: [expected_version, field1, val1, field2, val2, ...]
+            flat_args: list[str] = [str(entity.version - 1)]
+            for field_name, value in hash_data.items():
+                flat_args.append(field_name)
+                flat_args.append(value)
+            allowed = self._lock_set_script(keys=[key], args=flat_args)
+            if not allowed:
+                raise OptimisticLockError(f"Version conflict for entity '{entity.id}': expected {entity.version - 1}")
+            self._client.sadd(self._index_key, entity.id)
+            return entity
 
         key = self._make_key(entity.id)
         self._client.hset(key, mapping=self._to_hash(entity))
@@ -128,8 +150,17 @@ class Repository:
         data = self._client.hgetall(key)
         if not data:
             raise EntityNotFoundError(f"Entity '{entity_id}' not found")
+        entity = self._from_hash(data)
         now = datetime.now()
-        self._client.hset(key, mapping={"deleted": "1", "deleted_at": now.isoformat()})
+        self._client.hset(
+            key,
+            mapping={
+                "deleted": "1",
+                "deleted_at": now.isoformat(),
+                "version": str(entity.version + 1),
+                "updated_at": now.isoformat(),
+            },
+        )
 
     def hard_delete(self, entity_id: str) -> None:
         key = self._make_key(entity_id)
