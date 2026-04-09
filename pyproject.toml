@@ -5,9 +5,29 @@ description = "Enterprise-grade Python Redis toolkit"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
+authors = [
+    { name = "Xinzz", email = "765333437@qq.com" },
+]
+keywords = ["redis", "cache", "distributed-lock", "queue", "bloom-filter", "session"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
 dependencies = [
     "redis>=7.4.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Xinzz995/redis-kit"
+Repository = "https://github.com/Xinzz995/redis-kit"
+Issues = "https://github.com/Xinzz995/redis-kit/issues"
 
 [project.optional-dependencies]
 msgpack = ["msgpack>=1.0"]
