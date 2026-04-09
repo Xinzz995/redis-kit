@@ -1,4 +1,4 @@
-from redis_kit.config import ConnectionConfig, NamespaceConfig
+from redis_kit.config import ClusterConfig, ConnectionConfig, NamespaceConfig, SentinelConfig
 
 
 class TestConnectionConfig:
@@ -72,3 +72,78 @@ class TestNamespaceConfig:
 
         with pytest.raises(AttributeError):
             ns.prefix = "other"  # type: ignore[misc]
+
+
+class TestSentinelConfig:
+    def test_required_fields(self):
+        config = SentinelConfig(
+            sentinels=[("sentinel1", 26379), ("sentinel2", 26379)],
+            service_name="mymaster",
+        )
+        assert config.sentinels == [("sentinel1", 26379), ("sentinel2", 26379)]
+        assert config.service_name == "mymaster"
+
+    def test_defaults(self):
+        config = SentinelConfig(sentinels=[("h", 26379)], service_name="m")
+        assert config.db == 0
+        assert config.password is None
+        assert config.sentinel_password is None
+        assert config.max_connections == 10
+        assert config.socket_timeout == 5.0
+        assert config.socket_connect_timeout == 5.0
+        assert config.decode_responses is False
+        assert config.ssl is False
+
+    def test_frozen(self):
+        import pytest
+
+        config = SentinelConfig(sentinels=[("h", 26379)], service_name="m")
+        with pytest.raises(AttributeError):
+            config.service_name = "other"
+
+    def test_custom_values(self):
+        config = SentinelConfig(
+            sentinels=[("s1", 26379), ("s2", 26380), ("s3", 26381)],
+            service_name="mymaster",
+            db=3,
+            password="redis_pass",
+            sentinel_password="sentinel_pass",
+            max_connections=50,
+            ssl=True,
+        )
+        assert len(config.sentinels) == 3
+        assert config.password == "redis_pass"
+        assert config.sentinel_password == "sentinel_pass"
+
+
+class TestClusterConfig:
+    def test_required_fields(self):
+        config = ClusterConfig(startup_nodes=[("node1", 6379), ("node2", 6380)])
+        assert config.startup_nodes == [("node1", 6379), ("node2", 6380)]
+
+    def test_defaults(self):
+        config = ClusterConfig(startup_nodes=[("h", 6379)])
+        assert config.password is None
+        assert config.max_connections == 10
+        assert config.socket_timeout == 5.0
+        assert config.decode_responses is False
+        assert config.ssl is False
+        assert config.read_from_replicas is False
+
+    def test_frozen(self):
+        import pytest
+
+        config = ClusterConfig(startup_nodes=[("h", 6379)])
+        with pytest.raises(AttributeError):
+            config.password = "x"
+
+    def test_custom_values(self):
+        config = ClusterConfig(
+            startup_nodes=[("n1", 6379), ("n2", 6380), ("n3", 6381)],
+            password="secret",
+            max_connections=50,
+            read_from_replicas=True,
+            ssl=True,
+        )
+        assert len(config.startup_nodes) == 3
+        assert config.read_from_replicas is True

@@ -30,3 +30,33 @@ class NamespaceConfig:
         """Build a namespaced Redis key from parts."""
         all_parts = (self.prefix, *parts) if self.prefix else parts
         return self.separator.join(all_parts)
+
+
+@dataclass(frozen=True)
+class SentinelConfig:
+    """Redis Sentinel configuration."""
+
+    sentinels: list[tuple[str, int]]
+    service_name: str
+    db: int = 0
+    password: str | None = None
+    sentinel_password: str | None = None
+    max_connections: int = 10
+    socket_timeout: float = 5.0
+    socket_connect_timeout: float = 5.0
+    decode_responses: bool = False
+    ssl: bool = False
+
+
+@dataclass(frozen=True)
+class ClusterConfig:
+    """Redis Cluster configuration."""
+
+    startup_nodes: list[tuple[str, int]]
+    password: str | None = None
+    max_connections: int = 10
+    socket_timeout: float = 5.0
+    socket_connect_timeout: float = 5.0
+    decode_responses: bool = False
+    ssl: bool = False
+    read_from_replicas: bool = False
