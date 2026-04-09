@@ -6,6 +6,7 @@ import redis
 STANDALONE_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 SENTINEL_HOST = os.environ.get("REDIS_SENTINEL_HOST", "localhost")
 SENTINEL_PORT = int(os.environ.get("REDIS_SENTINEL_PORT", "26379"))
+SENTINEL_MASTER_PORT = int(os.environ.get("REDIS_SENTINEL_MASTER_PORT", "6380"))
 CLUSTER_NODES = os.environ.get("REDIS_CLUSTER_NODES", "localhost:7001,localhost:7002,localhost:7003")
 
 
@@ -25,18 +26,20 @@ skip_no_redis = pytest.mark.skipif(
 )
 
 
-def is_sentinel_available() -> bool:
+def is_sentinel_master_available() -> bool:
+    """Check if the Sentinel master is reachable directly (via port mapping)."""
     try:
-        s = redis.sentinel.Sentinel([(SENTINEL_HOST, SENTINEL_PORT)], socket_timeout=2)
-        s.discover_master("mymaster")
+        client = redis.Redis(host=SENTINEL_HOST, port=SENTINEL_MASTER_PORT, socket_timeout=2)
+        client.ping()
+        client.close()
         return True
     except Exception:
         return False
 
 
 skip_no_sentinel = pytest.mark.skipif(
-    not is_sentinel_available(),
-    reason="Redis Sentinel not available",
+    not is_sentinel_master_available(),
+    reason="Redis Sentinel master not available",
 )
 
 
@@ -69,11 +72,12 @@ def standalone_client():
 
 
 @pytest.fixture
-def sentinel_client():
-    s = redis.sentinel.Sentinel([(SENTINEL_HOST, SENTINEL_PORT)], socket_timeout=5)
-    client = s.master_for("mymaster", decode_responses=False)
+def sentinel_master_client():
+    """Direct connection to Sentinel master via port mapping (for Docker Desktop)."""
+    client = redis.Redis(host=SENTINEL_HOST, port=SENTINEL_MASTER_PORT, decode_responses=False)
     yield client
     client.flushdb()
+    client.close()
 
 
 @pytest.fixture

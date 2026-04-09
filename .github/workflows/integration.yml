@@ -7,7 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  integration:
+  standalone:
+    name: Standalone
     runs-on: ubuntu-latest
 
     services:
@@ -33,7 +34,76 @@ jobs:
       - name: Install dependencies
         run: uv sync --extra dev
 
-      - name: Run integration tests (standalone only in CI)
+      - name: Run standalone integration tests
         run: uv run pytest tests/integration/test_standalone.py -v --tb=short
         env:
           REDIS_URL: redis://localhost:6379/0
+
+  sentinel:
+    name: Sentinel
+    runs-on: ubuntu-latest
+
+    services:
+      redis-master:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run sentinel integration tests
+        run: uv run pytest tests/integration/test_sentinel.py -v --tb=short
+        env:
+          REDIS_SENTINEL_HOST: localhost
+          REDIS_SENTINEL_MASTER_PORT: "6380"
+
+  cluster:
+    name: Cluster
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start Redis Cluster (host network)
+        run: |
+          docker run -d --network host --name node1 redis:7-alpine redis-server --port 7001 --cluster-enabled yes --cluster-config-file /tmp/n1.conf --cluster-node-timeout 5000
+          docker run -d --network host --name node2 redis:7-alpine redis-server --port 7002 --cluster-enabled yes --cluster-config-file /tmp/n2.conf --cluster-node-timeout 5000
+          docker run -d --network host --name node3 redis:7-alpine redis-server --port 7003 --cluster-enabled yes --cluster-config-file /tmp/n3.conf --cluster-node-timeout 5000
+          sleep 5
+          echo yes | docker exec -i node1 redis-cli --cluster create 127.0.0.1:7001 127.0.0.1:7002 127.0.0.1:7003 --cluster-replicas 0
+          sleep 3
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run cluster integration tests
+        run: uv run pytest tests/integration/test_cluster.py -v --tb=short
+        env:
+          REDIS_CLUSTER_NODES: "localhost:7001,localhost:7002,localhost:7003"
+
+      - name: Stop Redis Cluster
+        if: always()
+        run: |
+          docker stop node1 node2 node3 || true
+          docker rm node1 node2 node3 || true
