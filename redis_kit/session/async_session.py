@@ -32,8 +32,10 @@ class AsyncSessionManager:
         session_id = self._id_generator()
         key = self._make_key(session_id)
         str_data = {k: str(v) for k, v in data.items()}
-        await self._client.hset(key, mapping=str_data)
-        await self._client.expire(key, self._ttl)
+        pipe = self._client.pipeline(transaction=True)
+        pipe.hset(key, mapping=str_data)
+        pipe.expire(key, self._ttl)
+        await pipe.execute()
         return session_id
 
     async def get(self, session_id: str) -> dict[str, str] | None:
@@ -48,10 +50,15 @@ class AsyncSessionManager:
 
     async def update(self, session_id: str, data: dict[str, Any]) -> None:
         key = self._make_key(session_id)
-        if not await self._client.exists(key):
-            raise SessionNotFoundError(f"Session '{session_id}' not found")
         str_data = {k: str(v) for k, v in data.items()}
-        await self._client.hset(key, mapping=str_data)
+        pipe = self._client.pipeline(transaction=True)
+        pipe.exists(key)
+        pipe.hset(key, mapping=str_data)
+        pipe.expire(key, self._ttl)
+        results = await pipe.execute()
+        if not results[0]:
+            await self._client.delete(key)
+            raise SessionNotFoundError(f"Session '{session_id}' not found")
 
     async def delete(self, session_id: str) -> None:
         await self._client.delete(self._make_key(session_id))

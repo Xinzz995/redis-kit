@@ -32,8 +32,10 @@ class SessionManager:
         session_id = self._id_generator()
         key = self._make_key(session_id)
         str_data = {k: str(v) for k, v in data.items()}
-        self._client.hset(key, mapping=str_data)
-        self._client.expire(key, self._ttl)
+        pipe = self._client.pipeline(transaction=True)
+        pipe.hset(key, mapping=str_data)
+        pipe.expire(key, self._ttl)
+        pipe.execute()
         return session_id
 
     def get(self, session_id: str) -> dict[str, str] | None:
@@ -48,10 +50,15 @@ class SessionManager:
 
     def update(self, session_id: str, data: dict[str, Any]) -> None:
         key = self._make_key(session_id)
-        if not self._client.exists(key):
-            raise SessionNotFoundError(f"Session '{session_id}' not found")
         str_data = {k: str(v) for k, v in data.items()}
-        self._client.hset(key, mapping=str_data)
+        pipe = self._client.pipeline(transaction=True)
+        pipe.exists(key)
+        pipe.hset(key, mapping=str_data)
+        pipe.expire(key, self._ttl)
+        results = pipe.execute()
+        if not results[0]:
+            self._client.delete(key)
+            raise SessionNotFoundError(f"Session '{session_id}' not found")
 
     def delete(self, session_id: str) -> None:
         self._client.delete(self._make_key(session_id))
