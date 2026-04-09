@@ -88,6 +88,21 @@ class TopologyConstraintError(RedisKitError):
     """Operation not supported under current topology (e.g., cross-slot in Cluster)."""
 
 
+# --- Repository ---
+
+
+class RepositoryError(RedisKitError):
+    """Repository operation failed."""
+
+
+class EntityNotFoundError(RepositoryError):
+    """Entity does not exist."""
+
+
+class OptimisticLockError(RepositoryError):
+    """Version conflict during save."""
+
+
 # --- Fallback Policy ---
 
 
