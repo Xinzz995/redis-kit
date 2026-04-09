@@ -81,6 +81,13 @@ class SessionNotFoundError(SessionError):
     """Session does not exist or has expired."""
 
 
+# --- Topology ---
+
+
+class TopologyConstraintError(RedisKitError):
+    """Operation not supported under current topology (e.g., cross-slot in Cluster)."""
+
+
 # --- Fallback Policy ---
 
 

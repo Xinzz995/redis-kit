@@ -59,6 +59,12 @@ class TestExceptionHierarchy:
         with pytest.raises(SessionError):
             raise SessionNotFoundError("not found")
 
+    def test_topology_constraint_error(self):
+        from redis_kit.exceptions import TopologyConstraintError
+
+        with pytest.raises(RedisKitError):
+            raise TopologyConstraintError("cross-slot operation not supported")
+
     def test_exception_with_context(self):
         original = ValueError("original")
         err = CacheError("cache fail")
