@@ -1,10 +1,10 @@
-# redis-kit
+# redis-py-kit
 
 Enterprise-grade Python Redis toolkit with sync/async dual-mode APIs.
 
+[![PyPI](https://img.shields.io/pypi/v/redis-py-kit.svg)](https://pypi.org/project/redis-py-kit/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![redis-py](https://img.shields.io/badge/redis--py-%3E%3D7.4.0-red.svg)](https://github.com/redis/redis-py)
 
 ## Features
 
@@ -22,17 +22,17 @@ Enterprise-grade Python Redis toolkit with sync/async dual-mode APIs.
 ## Installation
 
 ```bash
-pip install redis-kit
+pip install redis-py-kit
 ```
 
 With optional extras:
 
 ```bash
-pip install redis-kit[msgpack]     # MessagePack serializer
-pip install redis-kit[zstd]        # Zstandard compressor
-pip install redis-kit[lz4]         # LZ4 compressor
-pip install redis-kit[otel]        # OpenTelemetry integration
-pip install redis-kit[all]         # All optional dependencies
+pip install redis-py-kit[msgpack]     # MessagePack serializer
+pip install redis-py-kit[zstd]        # Zstandard compressor
+pip install redis-py-kit[lz4]         # LZ4 compressor
+pip install redis-py-kit[otel]        # OpenTelemetry integration
+pip install redis-py-kit[all]         # All optional dependencies
 ```
 
 ## Quick Start
