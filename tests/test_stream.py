@@ -1,9 +1,10 @@
 import fakeredis
 import pytest
+
+from redis_kit.exceptions import RedisKitError, StreamError
+from redis_kit.stream.consumer import StreamConsumer
 from redis_kit.stream.message import StreamMessage
 from redis_kit.stream.producer import StreamProducer
-from redis_kit.stream.consumer import StreamConsumer
-from redis_kit.exceptions import StreamError, RedisKitError
 
 
 class TestStreamMessage:

@@ -6,7 +6,7 @@ from redis_kit.compressors import ZlibCompressor
 from redis_kit.config import ClusterConfig, ConnectionConfig, NamespaceConfig, SentinelConfig
 from redis_kit.connection import ConnectionManager
 from redis_kit.counter import AsyncCounter, AsyncIDGenerator, Counter, IDGenerator
-from redis_kit.exceptions import FallbackPolicy, RateLimitExceeded, RedisKitError, TopologyConstraintError
+from redis_kit.exceptions import FallbackPolicy, RateLimitExceeded, RedisKitError, StreamError, TopologyConstraintError
 from redis_kit.hooks import CompositeHook
 from redis_kit.lock import AsyncLock, Lock
 from redis_kit.observability import MetricsCollector
@@ -28,6 +28,7 @@ from redis_kit.ratelimit import (
 )
 from redis_kit.serializers import JsonSerializer, PickleSerializer
 from redis_kit.session import AsyncSessionManager, SessionManager
+from redis_kit.stream import AsyncStreamConsumer, AsyncStreamProducer, StreamConsumer, StreamMessage, StreamProducer
 
 __all__ = [
     # Connection
@@ -81,8 +82,15 @@ __all__ = [
     "RateLimitResult",
     "RateLimitExceeded",
     "rate_limit",
+    # Stream
+    "StreamProducer",
+    "AsyncStreamProducer",
+    "StreamConsumer",
+    "AsyncStreamConsumer",
+    "StreamMessage",
     # Exceptions
     "RedisKitError",
+    "StreamError",
     "TopologyConstraintError",
     "FallbackPolicy",
 ]
