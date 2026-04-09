@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0] - 2026-04-10
+
+### Added
+- **Sentinel support**: `SentinelConfig` — automatic failover, upstream modules unaware
+- **Cluster support**: `ClusterConfig` — data sharding, multi-key operations auto-degrade
+- `ConnectionManager.topology`, `.is_cluster`, `.is_sentinel` properties
+- `Cache`/`AsyncCache` `is_cluster` parameter — `get_many`/`set_many` auto-degrade to individual operations
+- `Lock`/`AsyncLock` `is_cluster` parameter — keys wrapped in `{hash_tag}` for Lua script slot safety
+- `TopologyConstraintError` exception
+- `group_keys_by_slot()` utility for Cluster multi-key operations
+- 22 new tests (170 total)
+
 ## [0.1.1] - 2026-04-10
 
 ### Fixed
