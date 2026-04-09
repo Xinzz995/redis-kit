@@ -1,0 +1,111 @@
+import fakeredis
+import pytest
+
+from redis_kit.cache.decorator import cached
+
+
+class TestCachedDecorator:
+    def setup_method(self):
+        self.client = fakeredis.FakeRedis(decode_responses=False)
+
+    def teardown_method(self):
+        self.client.flushall()
+        self.client.close()
+
+    def test_caches_result(self):
+        call_count = 0
+
+        @cached(self.client, key="user:{user_id}", ttl=60, ttl_jitter=0)
+        def get_user(user_id: int) -> dict:
+            nonlocal call_count
+            call_count += 1
+            return {"id": user_id, "name": "Alice"}
+
+        result1 = get_user(1)
+        result2 = get_user(1)
+        assert result1 == {"id": 1, "name": "Alice"}
+        assert result2 == {"id": 1, "name": "Alice"}
+        assert call_count == 1
+
+    def test_different_args_different_keys(self):
+        @cached(self.client, key="user:{user_id}", ttl=60, ttl_jitter=0)
+        def get_user(user_id: int) -> dict:
+            return {"id": user_id}
+
+        assert get_user(1) == {"id": 1}
+        assert get_user(2) == {"id": 2}
+
+    def test_callable_key(self):
+        @cached(self.client, key=lambda uid: f"custom:{uid}", ttl=60, ttl_jitter=0)
+        def get_user(uid: int) -> dict:
+            return {"id": uid}
+
+        get_user(1)
+        assert self.client.exists(b"custom:1")
+
+    def test_callable_ttl(self):
+        @cached(
+            self.client,
+            key="item:{priority}",
+            ttl=lambda priority: 3600 if priority == "high" else 60,
+            ttl_jitter=0,
+        )
+        def get_item(priority: str) -> dict:
+            return {"priority": priority}
+
+        get_item("high")
+        assert self.client.ttl(b"item:high") > 3000
+
+        get_item("low")
+        assert self.client.ttl(b"item:low") <= 60
+
+    def test_bypass_cache(self):
+        call_count = 0
+
+        @cached(
+            self.client,
+            key="data:{key}",
+            ttl=60,
+            bypass=lambda key, force=False: force,
+            ttl_jitter=0,
+        )
+        def get_data(key: str, force: bool = False) -> dict:
+            nonlocal call_count
+            call_count += 1
+            return {"key": key, "count": call_count}
+
+        get_data("a")
+        assert call_count == 1
+        get_data("a")
+        assert call_count == 1
+        get_data("a", force=True)
+        assert call_count == 2
+
+    def test_string_ttl(self):
+        @cached(self.client, key="item:{x}", ttl="1h", ttl_jitter=0)
+        def get_item(x: int) -> int:
+            return x
+
+        get_item(1)
+        assert 3598 <= self.client.ttl(b"item:1") <= 3600
+
+    @pytest.mark.asyncio
+    async def test_async_function(self):
+        async_client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        call_count = 0
+
+        @cached(async_client, key="async:{x}", ttl=60, ttl_jitter=0)
+        async def async_fn(x: int) -> dict:
+            nonlocal call_count
+            call_count += 1
+            return {"x": x}
+
+        try:
+            result = await async_fn(1)
+            assert result == {"x": 1}
+            result2 = await async_fn(1)
+            assert result2 == {"x": 1}
+            assert call_count == 1
+        finally:
+            await async_client.flushall()
+            await async_client.aclose()
