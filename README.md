@@ -5,6 +5,9 @@ Enterprise-grade Python Redis toolkit with sync/async dual-mode APIs.
 [![PyPI](https://img.shields.io/pypi/v/redis-py-kit.svg)](https://pypi.org/project/redis-py-kit/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Docs](https://img.shields.io/badge/docs-中文%20%7C%20English-blue.svg)](https://xinzz995.github.io/redis-kit/)
+
+> **[中文文档](https://xinzz995.github.io/redis-kit/)** | **[English Docs](https://xinzz995.github.io/redis-kit/en/)**
 
 ## Features
 
