@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.0] - 2026-04-10
+
+### Added
+- **Repository** module — structured entity storage with enterprise features:
+  - `BaseModel` — dataclass base with audit metadata (id, version, created_at, updated_at, deleted, deleted_at)
+  - `Repository` / `AsyncRepository` — full CRUD with Redis Hash storage
+  - **Optimistic locking** — Lua-scripted version check, `OptimisticLockError` on conflict
+  - **Soft delete** — `delete()` marks as deleted, `restore()` recovers, `hard_delete()` removes permanently
+  - **Audit fields** — `created_at`/`updated_at` auto-populated on save
+  - **Version history** — `get_history()` returns all previous versions (Redis List)
+  - `find_all()`, `find_including_deleted()` for querying
+  - `RepositoryError`, `EntityNotFoundError`, `OptimisticLockError` exceptions
+- 22 new tests (266 total)
+
 ## [0.5.0] - 2026-04-10
 
 ### Added
