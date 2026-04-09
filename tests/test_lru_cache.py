@@ -72,7 +72,7 @@ class TestLRUCacheEviction:
         cache.set("b", 2)
         cache.set("c", 3)
         cache.set("a", 10)  # Overwrite "a", now "b" is oldest
-        cache.set("d", 4)   # Should evict "b"
+        cache.set("d", 4)  # Should evict "b"
         assert cache.get("a") == 10
         assert cache.get("b") is _MISS
 

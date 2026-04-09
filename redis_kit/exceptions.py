@@ -117,6 +117,5 @@ class RateLimitExceeded(RedisKitError):
     def __init__(self, result: Any) -> None:
         self.result = result
         super().__init__(
-            f"Rate limit exceeded: {result.remaining}/{result.limit}, "
-            f"retry after {result.retry_after:.1f}s"
+            f"Rate limit exceeded: {result.remaining}/{result.limit}, retry after {result.retry_after:.1f}s"
         )

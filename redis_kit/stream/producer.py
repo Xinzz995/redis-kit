@@ -22,8 +22,11 @@ class StreamProducer:
 
     def add(self, data: dict[str, str], msg_id: str = "*") -> str:
         result = self._client.xadd(
-            self._stream, data, id=msg_id,
-            maxlen=self._maxlen, approximate=True if self._maxlen else False,
+            self._stream,
+            data,
+            id=msg_id,
+            maxlen=self._maxlen,
+            approximate=True if self._maxlen else False,
         )
         return result if isinstance(result, str) else result.decode()
 

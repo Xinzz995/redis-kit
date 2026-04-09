@@ -39,9 +39,11 @@ class StreamConsumer:
 
     def listen(self, count: int = 10, block: int = 5000) -> Iterator[StreamMessage]:
         results = self._client.xreadgroup(
-            self._group, self._consumer_name,
+            self._group,
+            self._consumer_name,
             {self._stream: ">"},
-            count=count, block=block,
+            count=count,
+            block=block,
         )
         if not results:
             return
@@ -60,7 +62,12 @@ class StreamConsumer:
 
     def pending(self, count: int = 10, min_idle_ms: int = 0) -> list[dict]:
         result = self._client.xpending_range(
-            self._stream, self._group, min="-", max="+", count=count, idle=min_idle_ms,
+            self._stream,
+            self._group,
+            min="-",
+            max="+",
+            count=count,
+            idle=min_idle_ms,
         )
         return [
             {
@@ -74,8 +81,12 @@ class StreamConsumer:
 
     def claim_stale(self, min_idle_ms: int = 60000, count: int = 10) -> list[StreamMessage]:
         result = self._client.xautoclaim(
-            self._stream, self._group, self._consumer_name,
-            min_idle_time=min_idle_ms, start_id="0-0", count=count,
+            self._stream,
+            self._group,
+            self._consumer_name,
+            min_idle_time=min_idle_ms,
+            start_id="0-0",
+            count=count,
         )
         # xautoclaim returns [next_start_id, [(id, data), ...], deleted_ids]
         messages_data = result[1] if len(result) > 1 else []

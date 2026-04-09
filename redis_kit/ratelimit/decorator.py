@@ -18,10 +18,14 @@ if TYPE_CHECKING:
 
 
 _TIME_UNITS = {
-    "second": 1, "seconds": 1,
-    "minute": 60, "minutes": 60,
-    "hour": 3600, "hours": 3600,
-    "day": 86400, "days": 86400,
+    "second": 1,
+    "seconds": 1,
+    "minute": 60,
+    "minutes": 60,
+    "hour": 3600,
+    "hours": 3600,
+    "day": 86400,
+    "days": 86400,
 }
 
 
@@ -62,20 +66,32 @@ def rate_limit(
         if algorithm == "token_bucket":
             if is_async:
                 limiter = AsyncTokenBucketLimiter(
-                    client, prefix=prefix, rate=parsed_limit / window, capacity=parsed_limit,
+                    client,
+                    prefix=prefix,
+                    rate=parsed_limit / window,
+                    capacity=parsed_limit,
                 )
             else:
                 limiter = TokenBucketLimiter(
-                    client, prefix=prefix, rate=parsed_limit / window, capacity=parsed_limit,
+                    client,
+                    prefix=prefix,
+                    rate=parsed_limit / window,
+                    capacity=parsed_limit,
                 )
         else:
             if is_async:
                 limiter = AsyncSlidingWindowLimiter(
-                    client, prefix=prefix, limit=parsed_limit, window=window,
+                    client,
+                    prefix=prefix,
+                    limit=parsed_limit,
+                    window=window,
                 )
             else:
                 limiter = SlidingWindowLimiter(
-                    client, prefix=prefix, limit=parsed_limit, window=window,
+                    client,
+                    prefix=prefix,
+                    limit=parsed_limit,
+                    window=window,
                 )
 
         def _resolve_key(args: tuple, kwargs: dict) -> str:
@@ -86,6 +102,7 @@ def rate_limit(
             return key.format(**bound_args.arguments)
 
         if is_async:
+
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 resolved_key = _resolve_key(args, kwargs)
@@ -93,8 +110,10 @@ def rate_limit(
                 if not result.allowed:
                     raise RateLimitExceeded(result)
                 return await func(*args, **kwargs)
+
             return async_wrapper
         else:
+
             @functools.wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
                 resolved_key = _resolve_key(args, kwargs)
@@ -102,6 +121,7 @@ def rate_limit(
                 if not result.allowed:
                     raise RateLimitExceeded(result)
                 return func(*args, **kwargs)
+
             return sync_wrapper
 
     return decorator
