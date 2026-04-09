@@ -101,6 +101,13 @@ class FallbackPolicy:
     logger: logging.Logger = field(default_factory=lambda: logging.getLogger("redis_kit"))
 
 
+# --- Stream ---
+
+
+class StreamError(RedisKitError):
+    """Stream operation failed."""
+
+
 # --- Rate Limit ---
 
 
