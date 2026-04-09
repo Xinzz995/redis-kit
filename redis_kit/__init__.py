@@ -1,7 +1,7 @@
 """redis-kit: Enterprise-grade Python Redis toolkit."""
 
 from redis_kit.bloom import AsyncBloomFilter, BloomFilter
-from redis_kit.cache import AsyncCache, Cache, cached
+from redis_kit.cache import AsyncCache, AsyncTieredCache, Cache, LRUCache, TieredCache, cached
 from redis_kit.compressors import ZlibCompressor
 from redis_kit.config import ClusterConfig, ConnectionConfig, NamespaceConfig, SentinelConfig
 from redis_kit.connection import ConnectionManager
@@ -39,6 +39,9 @@ __all__ = [
     # Cache
     "Cache",
     "AsyncCache",
+    "TieredCache",
+    "AsyncTieredCache",
+    "LRUCache",
     "cached",
     # Lock
     "Lock",
