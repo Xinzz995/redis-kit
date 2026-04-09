@@ -36,7 +36,7 @@ lz4 = ["lz4>=4.0"]
 zstd = ["zstandard>=0.20"]
 otel = ["opentelemetry-api>=1.20", "opentelemetry-sdk>=1.20"]
 all = ["redis-py-kit[msgpack,lz4,zstd,otel]"]
-docs = ["mkdocs-material>=9.5", "mkdocs-awesome-pages-plugin>=2.9"]
+docs = ["mkdocs-material>=9.5", "mkdocs-static-i18n>=1.2"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4", "mypy>=1.10", "fakeredis[lua]>=2.21"]
 
 [tool.pytest.ini_options]

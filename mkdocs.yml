@@ -27,28 +27,62 @@ theme:
     - content.code.copy
     - search.highlight
 
-nav:
-  - 首页: index.md
-  - 快速入门:
-      - 安装: getting-started/installation.md
-      - 快速开始: getting-started/quickstart.md
-  - 核心模块:
-      - 缓存: modules/cache.md
-      - 多级缓存: modules/tiered-cache.md
-      - 分布式锁: modules/lock.md
-      - 消息队列: modules/queue.md
-      - Redis Streams: modules/streams.md
-      - 布隆过滤器: modules/bloom.md
-      - 计数器与 ID 生成器: modules/counter.md
-      - Session 管理: modules/session.md
-      - 限流器: modules/ratelimit.md
-      - Repository: modules/repository.md
-      - 可观测性: modules/observability.md
-  - 配置:
-      - 拓扑支持: configuration/topology.md
-      - 序列化与压缩: configuration/serialization.md
-      - 异常处理: configuration/exceptions.md
-  - 更新日志: changelog.md
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      languages:
+        - locale: zh
+          default: true
+          name: 简体中文
+          build: true
+          nav:
+            - 首页: index.md
+            - 快速入门:
+                - 安装: getting-started/installation.md
+                - 快速开始: getting-started/quickstart.md
+            - 核心模块:
+                - 缓存: modules/cache.md
+                - 多级缓存: modules/tiered-cache.md
+                - 分布式锁: modules/lock.md
+                - 消息队列: modules/queue.md
+                - Redis Streams: modules/streams.md
+                - 布隆过滤器: modules/bloom.md
+                - 计数器与 ID 生成器: modules/counter.md
+                - Session 管理: modules/session.md
+                - 限流器: modules/ratelimit.md
+                - Repository: modules/repository.md
+                - 可观测性: modules/observability.md
+            - 配置:
+                - 拓扑支持: configuration/topology.md
+                - 序列化与压缩: configuration/serialization.md
+                - 异常处理: configuration/exceptions.md
+            - 更新日志: changelog.md
+        - locale: en
+          name: English
+          build: true
+          nav:
+            - Home: index.md
+            - Getting Started:
+                - Installation: getting-started/installation.md
+                - Quick Start: getting-started/quickstart.md
+            - Modules:
+                - Cache: modules/cache.md
+                - Tiered Cache: modules/tiered-cache.md
+                - Distributed Lock: modules/lock.md
+                - Queue: modules/queue.md
+                - Redis Streams: modules/streams.md
+                - Bloom Filter: modules/bloom.md
+                - Counter & ID Generator: modules/counter.md
+                - Session Manager: modules/session.md
+                - Rate Limiter: modules/ratelimit.md
+                - Repository: modules/repository.md
+                - Observability: modules/observability.md
+            - Configuration:
+                - Topology: configuration/topology.md
+                - Serialization: configuration/serialization.md
+                - Exception Handling: configuration/exceptions.md
+            - Changelog: changelog.md
 
 docs_dir: site-docs
 
