@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0] - 2026-04-10
+
+### Added
+- **Rate Limiter** module with two algorithms:
+  - `TokenBucketLimiter` / `AsyncTokenBucketLimiter` — smooth traffic with burst tolerance, Lua-scripted atomic operations
+  - `SlidingWindowLimiter` / `AsyncSlidingWindowLimiter` — exact counting with Redis Sorted Set + Lua script
+- `@rate_limit` decorator with DSL parsing (e.g. `"100/minute"`)
+- `RateLimitResult` dataclass (allowed, limit, remaining, retry_after, reset_at) — maps to HTTP rate limit headers
+- `RateLimitExceeded` exception with result context
+- 30 new tests (200 total)
+
 ## [0.2.0] - 2026-04-10
 
 ### Added
