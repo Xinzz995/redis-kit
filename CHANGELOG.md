@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.1] - 2026-04-10
+
+### Improved
+- Async unit tests for all modules — coverage 73% → 82%
+- Integration tests with real Redis (Standalone 15 + Sentinel 3 + Cluster 4)
+- docker-compose for local testing (Standalone + Sentinel + Cluster)
+- CI: separate integration test jobs for each topology
+- Added pytest-cov to dev dependencies
+
 ## [0.6.0] - 2026-04-10
 
 ### Added
