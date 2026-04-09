@@ -35,7 +35,7 @@ lz4 = ["lz4>=4.0"]
 zstd = ["zstandard>=0.20"]
 otel = ["opentelemetry-api>=1.20", "opentelemetry-sdk>=1.20"]
 all = ["redis-py-kit[msgpack,lz4,zstd,otel]"]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4", "fakeredis[lua]>=2.21"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4", "mypy>=1.10", "fakeredis[lua]>=2.21"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -47,6 +47,27 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true
+
+# redis-py stubs declare commands as returning Awaitable[T] | T,
+# which causes false-positive return-value / arg-type / misc / union-attr
+# errors in modules that call redis commands directly.
+[[tool.mypy.overrides]]
+module = [
+    "redis_kit.cache.*",
+    "redis_kit.counter.*",
+    "redis_kit.lock.*",
+    "redis_kit.queue.*",
+    "redis_kit.session.*",
+]
+disable_error_code = ["return-value", "arg-type", "misc", "union-attr", "assignment"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["redis_kit"]

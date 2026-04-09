@@ -96,7 +96,7 @@ class ConnectionManager:
                     self._async_clients[loop] = client
         return client
 
-    def _build_sync_client(self) -> redis.Redis:
+    def _build_sync_client(self) -> Any:
         if isinstance(self._config, SentinelConfig):
             return self._build_sentinel_sync()
         if isinstance(self._config, ClusterConfig):
@@ -104,27 +104,30 @@ class ConnectionManager:
         return self._build_standalone_sync()
 
     def _build_standalone_sync(self) -> redis.Redis:
+        assert isinstance(self._config, ConnectionConfig)
+        cfg = self._config
         if self._url:
             return redis.Redis.from_url(
                 self._url,
-                max_connections=self._config.max_connections,
-                socket_timeout=self._config.socket_timeout,
-                socket_connect_timeout=self._config.socket_connect_timeout,
-                decode_responses=self._config.decode_responses,
+                max_connections=cfg.max_connections,
+                socket_timeout=cfg.socket_timeout,
+                socket_connect_timeout=cfg.socket_connect_timeout,
+                decode_responses=cfg.decode_responses,
             )
         return redis.Redis(
-            host=self._config.host,
-            port=self._config.port,
-            db=self._config.db,
-            password=self._config.password,
-            max_connections=self._config.max_connections,
-            socket_timeout=self._config.socket_timeout,
-            socket_connect_timeout=self._config.socket_connect_timeout,
-            decode_responses=self._config.decode_responses,
-            ssl=self._config.ssl,
+            host=cfg.host,
+            port=cfg.port,
+            db=cfg.db,
+            password=cfg.password,
+            max_connections=cfg.max_connections,
+            socket_timeout=cfg.socket_timeout,
+            socket_connect_timeout=cfg.socket_connect_timeout,
+            decode_responses=cfg.decode_responses,
+            ssl=cfg.ssl,
         )
 
     def _build_sentinel_sync(self) -> redis.Redis:
+        assert isinstance(self._config, SentinelConfig)
         cfg = self._config
         sentinel = redis.sentinel.Sentinel(
             cfg.sentinels,
@@ -141,9 +144,10 @@ class ConnectionManager:
             decode_responses=cfg.decode_responses,
         )
 
-    def _build_cluster_sync(self) -> redis.Redis:
+    def _build_cluster_sync(self) -> Any:
         from redis.cluster import ClusterNode, RedisCluster
 
+        assert isinstance(self._config, ClusterConfig)
         cfg = self._config
         nodes = [ClusterNode(h, p) for h, p in cfg.startup_nodes]
         return RedisCluster(
@@ -156,7 +160,7 @@ class ConnectionManager:
             ssl=cfg.ssl,
         )
 
-    def _build_async_client(self) -> redis.asyncio.Redis:
+    def _build_async_client(self) -> Any:
         if isinstance(self._config, SentinelConfig):
             return self._build_sentinel_async()
         if isinstance(self._config, ClusterConfig):
@@ -164,27 +168,30 @@ class ConnectionManager:
         return self._build_standalone_async()
 
     def _build_standalone_async(self) -> redis.asyncio.Redis:
+        assert isinstance(self._config, ConnectionConfig)
+        cfg = self._config
         if self._url:
             return redis.asyncio.Redis.from_url(
                 self._url,
-                max_connections=self._config.max_connections,
-                socket_timeout=self._config.socket_timeout,
-                socket_connect_timeout=self._config.socket_connect_timeout,
-                decode_responses=self._config.decode_responses,
+                max_connections=cfg.max_connections,
+                socket_timeout=cfg.socket_timeout,
+                socket_connect_timeout=cfg.socket_connect_timeout,
+                decode_responses=cfg.decode_responses,
             )
         return redis.asyncio.Redis(
-            host=self._config.host,
-            port=self._config.port,
-            db=self._config.db,
-            password=self._config.password,
-            max_connections=self._config.max_connections,
-            socket_timeout=self._config.socket_timeout,
-            socket_connect_timeout=self._config.socket_connect_timeout,
-            decode_responses=self._config.decode_responses,
-            ssl=self._config.ssl,
+            host=cfg.host,
+            port=cfg.port,
+            db=cfg.db,
+            password=cfg.password,
+            max_connections=cfg.max_connections,
+            socket_timeout=cfg.socket_timeout,
+            socket_connect_timeout=cfg.socket_connect_timeout,
+            decode_responses=cfg.decode_responses,
+            ssl=cfg.ssl,
         )
 
     def _build_sentinel_async(self) -> redis.asyncio.Redis:
+        assert isinstance(self._config, SentinelConfig)
         cfg = self._config
         sentinel = redis.asyncio.sentinel.Sentinel(
             cfg.sentinels,
@@ -201,9 +208,10 @@ class ConnectionManager:
             decode_responses=cfg.decode_responses,
         )
 
-    def _build_cluster_async(self) -> redis.asyncio.Redis:
+    def _build_cluster_async(self) -> Any:
         from redis.asyncio.cluster import ClusterNode, RedisCluster
 
+        assert isinstance(self._config, ClusterConfig)
         cfg = self._config
         nodes = [ClusterNode(h, p) for h, p in cfg.startup_nodes]
         return RedisCluster(

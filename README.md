@@ -17,6 +17,7 @@ Enterprise-grade Python Redis toolkit with sync/async dual-mode APIs.
 - **Observability** — MetricsCollector hook, OpenTelemetry integration (optional)
 - **Pluggable Serialization** — JSON (default), Pickle, MessagePack (optional)
 - **Pluggable Compression** — Zlib, Zstandard (optional), LZ4 (optional)
+- **Topology Support** — Standalone, Sentinel (auto-failover), Cluster (data sharding) — switch by config
 - **Sync + Async** — Every module provides both sync and async APIs
 
 ## Installation
@@ -211,6 +212,56 @@ async with AsyncLock(conn.async_client, prefix="lock")("resource", timeout=10):
     await do_async_work()
 ```
 
+## Topology Support
+
+Switch between Standalone, Sentinel, and Cluster by changing the Config object — all downstream modules work unchanged.
+
+### Standalone (default)
+
+```python
+from redis_kit import ConnectionManager, ConnectionConfig
+
+conn = ConnectionManager(config=ConnectionConfig(host="localhost", port=6379))
+# or simply
+conn = ConnectionManager(url="redis://localhost:6379/0")
+```
+
+### Sentinel
+
+```python
+from redis_kit import ConnectionManager, SentinelConfig, Cache
+
+conn = ConnectionManager(config=SentinelConfig(
+    sentinels=[("sentinel1", 26379), ("sentinel2", 26379), ("sentinel3", 26379)],
+    service_name="mymaster",
+    password="secret",
+))
+
+# Downstream usage unchanged — Sentinel handles failover transparently
+cache = Cache(conn.sync_client, prefix="myapp:cache")
+```
+
+### Cluster
+
+```python
+from redis_kit import ConnectionManager, ClusterConfig, Cache, Lock
+
+conn = ConnectionManager(config=ClusterConfig(
+    startup_nodes=[("node1", 6379), ("node2", 6379), ("node3", 6379)],
+    password="secret",
+    read_from_replicas=True,
+))
+
+# Pass is_cluster for modules that need Cluster adaptation
+cache = Cache(conn.sync_client, prefix="myapp:cache", is_cluster=conn.is_cluster)
+lock = Lock(conn.sync_client, prefix="myapp:lock", is_cluster=conn.is_cluster)
+```
+
+**Cluster adaptations (automatic):**
+- `get_many` / `set_many` — degrade to individual operations (no cross-slot MGET/MSET)
+- Lock keys wrapped in `{hash_tag}` — Lua scripts stay on one slot
+- `delete_pattern` / `iter_keys` — `scan_iter` works across all Cluster nodes
+
 ## Serialization & Compression
 
 ```python
@@ -248,6 +299,7 @@ RedisKitError
 ├── RedisConnectionError
 │   └── ConnectionPoolExhaustedError
 ├── SerializationError
+├── TopologyConstraintError
 ├── LockError
 │   ├── LockAcquireError
 │   └── LockReleaseError
