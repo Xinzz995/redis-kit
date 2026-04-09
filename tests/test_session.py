@@ -1,6 +1,9 @@
 import fakeredis
+import fakeredis.aioredis
 import pytest
 
+from redis_kit.exceptions import SessionNotFoundError
+from redis_kit.session.async_session import AsyncSessionManager
 from redis_kit.session.session import SessionManager
 
 
@@ -77,3 +80,61 @@ class TestSessionManager:
 
         with pytest.raises(SessionNotFoundError):
             mgr.refresh("nonexistent")
+
+
+class TestAsyncSessionManager:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        yield
+
+    def _make_manager(self):
+        return AsyncSessionManager(self.client, prefix="session", ttl=1800)
+
+    @pytest.mark.asyncio
+    async def test_create_and_get(self):
+        mgr = self._make_manager()
+        sid = await mgr.create({"user_id": 1, "role": "admin"})
+        data = await mgr.get(sid)
+        assert data["user_id"] == "1"
+        assert data["role"] == "admin"
+
+    @pytest.mark.asyncio
+    async def test_get_nonexistent(self):
+        mgr = self._make_manager()
+        assert await mgr.get("nonexistent") is None
+
+    @pytest.mark.asyncio
+    async def test_update(self):
+        mgr = self._make_manager()
+        sid = await mgr.create({"user_id": 1})
+        await mgr.update(sid, {"role": "admin"})
+        data = await mgr.get(sid)
+        assert data["role"] == "admin"
+
+    @pytest.mark.asyncio
+    async def test_delete(self):
+        mgr = self._make_manager()
+        sid = await mgr.create({"user_id": 1})
+        await mgr.delete(sid)
+        assert await mgr.get(sid) is None
+
+    @pytest.mark.asyncio
+    async def test_exists(self):
+        mgr = self._make_manager()
+        sid = await mgr.create({"user_id": 1})
+        assert await mgr.exists(sid) is True
+        await mgr.delete(sid)
+        assert await mgr.exists(sid) is False
+
+    @pytest.mark.asyncio
+    async def test_refresh(self):
+        mgr = self._make_manager()
+        sid = await mgr.create({"user_id": 1})
+        await mgr.refresh(sid)
+
+    @pytest.mark.asyncio
+    async def test_update_nonexistent_raises(self):
+        mgr = self._make_manager()
+        with pytest.raises(SessionNotFoundError):
+            await mgr.update("nonexistent", {"key": "val"})

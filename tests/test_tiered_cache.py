@@ -223,3 +223,48 @@ class TestAsyncTieredCache:
         assert await cache.get("missing") is None
         await self.l2.set("missing", "found")
         assert await cache.get("missing") is None  # Negative cached
+
+
+class TestAsyncTieredCacheFull:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        self.l2 = AsyncCache(self.client, prefix="test", ttl_jitter=0)
+        yield
+
+    def _make(self, **kwargs):
+        return AsyncTieredCache(self.l2, local_maxsize=100, local_ttl=60, **kwargs)
+
+    @pytest.mark.asyncio
+    async def test_get_many(self):
+        cache = self._make()
+        await cache.set("a", 1)
+        await self.l2.set("b", 2)
+        result = await cache.get_many(["a", "b", "c"])
+        assert result["a"] == 1
+        assert result["b"] == 2
+        assert result["c"] is None
+
+    @pytest.mark.asyncio
+    async def test_set_many(self):
+        cache = self._make()
+        await cache.set_many({"x": 10, "y": 20}, ttl=3600)
+        assert await cache.get("x") == 10
+        assert await cache.get("y") == 20
+
+    @pytest.mark.asyncio
+    async def test_remember(self):
+        cache = self._make()
+        result = await cache.remember("key", lambda: {"v": 1}, ttl=3600)
+        assert result == {"v": 1}
+        result2 = await cache.remember("key", lambda: {"v": 2}, ttl=3600)
+        assert result2 == {"v": 1}
+
+    @pytest.mark.asyncio
+    async def test_local_management(self):
+        cache = self._make()
+        await cache.set("key", "val")
+        assert cache.local_size == 1
+        cache.invalidate_local("key")
+        assert cache.local_size == 0
+        cache.clear_local()

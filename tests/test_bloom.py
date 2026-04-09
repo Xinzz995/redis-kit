@@ -1,5 +1,8 @@
 import fakeredis
+import fakeredis.aioredis
+import pytest
 
+from redis_kit.bloom.async_bloom import AsyncBloomFilter
 from redis_kit.bloom.bloom import BloomFilter
 
 
@@ -46,3 +49,25 @@ class TestBloomFilter:
         bf.add("item")
         keys = [k.decode() for k in self.client.keys(b"redis_kit:bloom:*")]
         assert len(keys) > 0
+
+
+class TestAsyncBloomFilter:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        yield
+
+    @pytest.mark.asyncio
+    async def test_add_and_exists(self):
+        bf = AsyncBloomFilter(self.client, "emails", expected_items=1000, false_positive_rate=0.01)
+        await bf.add("alice@example.com")
+        assert await bf.exists("alice@example.com") is True
+        assert await bf.exists("unknown@example.com") is False
+
+    @pytest.mark.asyncio
+    async def test_add_many_exists_many(self):
+        bf = AsyncBloomFilter(self.client, "emails", expected_items=1000, false_positive_rate=0.01)
+        await bf.add_many(["a@x.com", "b@x.com"])
+        results = await bf.exists_many(["a@x.com", "c@x.com"])
+        assert results[0] is True
+        assert results[1] is False

@@ -1,7 +1,10 @@
 import fakeredis
+import fakeredis.aioredis
 import pytest
 
 from redis_kit.exceptions import RedisKitError, StreamError
+from redis_kit.stream.async_consumer import AsyncStreamConsumer
+from redis_kit.stream.async_producer import AsyncStreamProducer
 from redis_kit.stream.consumer import StreamConsumer
 from redis_kit.stream.message import StreamMessage
 from redis_kit.stream.producer import StreamProducer
@@ -127,3 +130,36 @@ class TestStreamConsumer:
         c.ensure_group()
         messages = list(c.listen(count=10, block=0))
         assert len(messages) == 1
+
+
+class TestAsyncStreamProducer:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        yield
+
+    @pytest.mark.asyncio
+    async def test_add_and_len(self):
+        p = AsyncStreamProducer(self.client, stream="test")
+        msg_id = await p.add({"key": "val"})
+        assert isinstance(msg_id, str)
+        assert await p.len() == 1
+
+
+class TestAsyncStreamConsumer:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        yield
+
+    @pytest.mark.asyncio
+    async def test_produce_consume(self):
+        p = AsyncStreamProducer(self.client, stream="test")
+        await p.add({"key": "val1"})
+        await p.add({"key": "val2"})
+        c = AsyncStreamConsumer(self.client, stream="test", group="g1", consumer_name="c1", auto_ack=True)
+        await c.ensure_group()
+        messages = []
+        async for msg in c.listen(count=10, block=0):
+            messages.append(msg)
+        assert len(messages) == 2

@@ -1,5 +1,8 @@
 import fakeredis
+import fakeredis.aioredis
+import pytest
 
+from redis_kit.queue.async_delay_queue import AsyncDelayQueue
 from redis_kit.queue.delay_queue import DelayQueue
 
 
@@ -35,3 +38,23 @@ class TestDelayQueue:
         dq.put({"a": 1}, delay=0)
         dq.poll(count=10)
         assert dq.size() == 0
+
+
+class TestAsyncDelayQueue:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        yield
+
+    @pytest.mark.asyncio
+    async def test_put_and_poll(self):
+        dq = AsyncDelayQueue(self.client, "tasks")
+        await dq.put({"task": "test"}, delay=0)
+        results = await dq.poll(count=10)
+        assert len(results) == 1
+
+    @pytest.mark.asyncio
+    async def test_size(self):
+        dq = AsyncDelayQueue(self.client, "tasks")
+        await dq.put({"a": 1}, delay=0)
+        assert await dq.size() == 1

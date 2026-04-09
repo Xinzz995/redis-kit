@@ -1,7 +1,9 @@
 import fakeredis
+import fakeredis.aioredis
 import pytest
 
 from redis_kit.cache._logic import parse_ttl
+from redis_kit.cache.async_cache import AsyncCache
 from redis_kit.cache.cache import Cache
 
 
@@ -142,3 +144,79 @@ class TestCache:
         cache.set("user:2", "b")
         keys = list(cache.iter_keys("user:*"))
         assert sorted(keys) == ["user:1", "user:2"]
+
+
+class TestAsyncCache:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        yield
+
+    def _make_cache(self, **kwargs):
+        return AsyncCache(self.client, prefix="test:cache", ttl_jitter=0, **kwargs)
+
+    @pytest.mark.asyncio
+    async def test_set_and_get(self):
+        cache = self._make_cache()
+        await cache.set("key", {"name": "Alice"}, ttl=3600)
+        assert await cache.get("key") == {"name": "Alice"}
+
+    @pytest.mark.asyncio
+    async def test_get_nonexistent(self):
+        cache = self._make_cache()
+        assert await cache.get("missing") is None
+
+    @pytest.mark.asyncio
+    async def test_delete(self):
+        cache = self._make_cache()
+        await cache.set("key", "val")
+        await cache.delete("key")
+        assert await cache.get("key") is None
+
+    @pytest.mark.asyncio
+    async def test_ttl_and_persist(self):
+        cache = self._make_cache()
+        await cache.set("key", "val", ttl=3600)
+        assert await cache.ttl("key") > 3500
+        await cache.persist("key")
+        assert await cache.ttl("key") == -1
+
+    @pytest.mark.asyncio
+    async def test_expire(self):
+        cache = self._make_cache()
+        await cache.set("key", "val")
+        await cache.expire("key", 600)
+        assert 500 < await cache.ttl("key") <= 600
+
+    @pytest.mark.asyncio
+    async def test_remember(self):
+        cache = self._make_cache()
+        result = await cache.remember("key", lambda: {"val": 1}, ttl=3600)
+        assert result == {"val": 1}
+        result2 = await cache.remember("key", lambda: {"val": 2}, ttl=3600)
+        assert result2 == {"val": 1}
+
+    @pytest.mark.asyncio
+    async def test_get_many(self):
+        cache = self._make_cache()
+        await cache.set("a", 1)
+        await cache.set("b", 2)
+        result = await cache.get_many(["a", "b", "c"])
+        assert result == {"a": 1, "b": 2, "c": None}
+
+    @pytest.mark.asyncio
+    async def test_set_many(self):
+        cache = self._make_cache()
+        await cache.set_many({"a": 1, "b": 2}, ttl=3600)
+        assert await cache.get("a") == 1
+        assert await cache.get("b") == 2
+
+    @pytest.mark.asyncio
+    async def test_bind(self):
+        cache = self._make_cache()
+        bound = cache.bind("key")
+        await bound.set({"name": "Alice"}, ttl=3600)
+        assert await bound.get() == {"name": "Alice"}
+        assert await bound.ttl() > 0
+        await bound.delete()
+        assert await bound.get() is None

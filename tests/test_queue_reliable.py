@@ -1,7 +1,9 @@
 import fakeredis
+import fakeredis.aioredis
 import pytest
 
 from redis_kit.exceptions import QueueEmptyError
+from redis_kit.queue.async_reliable_queue import AsyncReliableQueue
 from redis_kit.queue.reliable_queue import ReliableQueue
 
 
@@ -48,3 +50,30 @@ class TestReliableQueue:
         assert rq.get().data == {"n": 1}
         assert rq.get().data == {"n": 2}
         assert rq.get().data == {"n": 3}
+
+
+class TestAsyncReliableQueue:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        yield
+
+    @pytest.mark.asyncio
+    async def test_put_and_get(self):
+        rq = AsyncReliableQueue(self.client, "tasks")
+        await rq.put({"task": "email"})
+        msg = await rq.get()
+        assert msg.data == {"task": "email"}
+
+    @pytest.mark.asyncio
+    async def test_get_empty_raises(self):
+        rq = AsyncReliableQueue(self.client, "tasks")
+        with pytest.raises(QueueEmptyError):
+            await rq.get()
+
+    @pytest.mark.asyncio
+    async def test_size(self):
+        rq = AsyncReliableQueue(self.client, "tasks")
+        await rq.put({"a": 1})
+        assert await rq.size() == 1
+        assert await rq.processing_count() == 0
