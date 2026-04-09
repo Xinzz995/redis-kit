@@ -99,3 +99,17 @@ class FallbackPolicy:
     fallback: Callable[..., Any] | None = None
     log_on_fallback: bool = True
     logger: logging.Logger = field(default_factory=lambda: logging.getLogger("redis_kit"))
+
+
+# --- Rate Limit ---
+
+
+class RateLimitExceeded(RedisKitError):
+    """Rate limit exceeded."""
+
+    def __init__(self, result: Any) -> None:
+        self.result = result
+        super().__init__(
+            f"Rate limit exceeded: {result.remaining}/{result.limit}, "
+            f"retry after {result.retry_after:.1f}s"
+        )
