@@ -18,12 +18,13 @@ class Message:
     id: str
     data: Any
     _queue: ReliableQueue
+    _raw: bytes
 
     def ack(self) -> None:
-        self._queue._ack(self.id)
+        self._queue._ack(self._raw)
 
     def nack(self) -> None:
-        self._queue._nack(self.id, self.data)
+        self._queue._nack(self._raw, self.data)
 
 
 class ReliableQueue:
@@ -48,18 +49,13 @@ class ReliableQueue:
         if result is None:
             raise QueueEmptyError("Queue is empty")
         msg = json.loads(result)
-        return Message(id=msg["id"], data=msg["data"], _queue=self)
+        return Message(id=msg["id"], data=msg["data"], _queue=self, _raw=result)
 
-    def _ack(self, msg_id: str) -> None:
-        items = self._client.lrange(self._processing_key, 0, -1)
-        for item in items:
-            msg = json.loads(item)
-            if msg["id"] == msg_id:
-                self._client.lrem(self._processing_key, 1, item)
-                return
+    def _ack(self, raw: bytes) -> None:
+        self._client.lrem(self._processing_key, 1, raw)
 
-    def _nack(self, msg_id: str, data: Any) -> None:
-        self._ack(msg_id)
+    def _nack(self, raw: bytes, data: Any) -> None:
+        self._ack(raw)
         self.put(data)
 
     def size(self) -> int:

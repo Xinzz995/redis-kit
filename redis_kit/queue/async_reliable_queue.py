@@ -18,12 +18,13 @@ class AsyncMessage:
     id: str
     data: Any
     _queue: AsyncReliableQueue
+    _raw: bytes
 
     async def ack(self) -> None:
-        await self._queue._ack(self.id)
+        await self._queue._ack(self._raw)
 
     async def nack(self) -> None:
-        await self._queue._nack(self.id, self.data)
+        await self._queue._nack(self._raw, self.data)
 
 
 class AsyncReliableQueue:
@@ -48,18 +49,13 @@ class AsyncReliableQueue:
         if result is None:
             raise QueueEmptyError("Queue is empty")
         msg = json.loads(result)
-        return AsyncMessage(id=msg["id"], data=msg["data"], _queue=self)
+        return AsyncMessage(id=msg["id"], data=msg["data"], _queue=self, _raw=result)
 
-    async def _ack(self, msg_id: str) -> None:
-        items = await self._client.lrange(self._processing_key, 0, -1)
-        for item in items:
-            msg = json.loads(item)
-            if msg["id"] == msg_id:
-                await self._client.lrem(self._processing_key, 1, item)
-                return
+    async def _ack(self, raw: bytes) -> None:
+        await self._client.lrem(self._processing_key, 1, raw)
 
-    async def _nack(self, msg_id: str, data: Any) -> None:
-        await self._ack(msg_id)
+    async def _nack(self, raw: bytes, data: Any) -> None:
+        await self._ack(raw)
         await self.put(data)
 
     async def size(self) -> int:

@@ -10,9 +10,12 @@ from redis_kit.exceptions import LockAcquireError, LockReleaseError
 from redis_kit.lock._lua import (
     EXTEND_LOCK,
     EXTEND_REENTRANT_LOCK,
+    READ_ACQUIRE,
+    READ_RELEASE,
     REENTRANT_ACQUIRE,
     REENTRANT_RELEASE,
     RELEASE_LOCK,
+    WRITE_ACQUIRE,
 )
 
 if TYPE_CHECKING:
@@ -30,6 +33,9 @@ class Lock:
         self._reentrant_release_script = self._client.register_script(REENTRANT_RELEASE)
         self._extend_script = self._client.register_script(EXTEND_LOCK)
         self._extend_reentrant_script = self._client.register_script(EXTEND_REENTRANT_LOCK)
+        self._read_acquire_script = self._client.register_script(READ_ACQUIRE)
+        self._read_release_script = self._client.register_script(READ_RELEASE)
+        self._write_acquire_script = self._client.register_script(WRITE_ACQUIRE)
 
     def _make_key(self, name: str) -> str:
         return f"{self._prefix}:{name}" if self._prefix else name
@@ -122,12 +128,13 @@ class Lock:
     def read(self, name: str, timeout: int = 10) -> Iterator[None]:
         """Acquire a read lock (shared). Multiple readers allowed."""
         key = self._make_key(name) + ":rwlock"
-        self._client.hincrby(key, "readers", 1)
-        self._client.expire(key, timeout)
+        acquired = self._read_acquire_script(keys=[key], args=[timeout])
+        if not acquired:
+            raise LockAcquireError(f"Failed to acquire read lock '{name}': writer active")
         try:
             yield
         finally:
-            self._client.hincrby(key, "readers", -1)
+            self._read_release_script(keys=[key], args=[])
 
     @contextmanager
     def write(self, name: str, timeout: int = 10, blocking_timeout: float = 5.0) -> Iterator[None]:
@@ -140,19 +147,14 @@ class Lock:
 
         while time.monotonic() < deadline:
             if self._client.set(key + ":writer", owner, nx=True, ex=timeout):
-                break
+                readers = self._client.hget(key, "readers")
+                if readers is None or int(readers) <= 0:
+                    break
+                # Readers still active, release writer and retry
+                self._client.delete(key + ":writer")
             time.sleep(0.05)
         else:
             raise LockAcquireError(f"Failed to acquire write lock '{name}'")
-
-        while time.monotonic() < deadline:
-            readers = self._client.hget(key, "readers")
-            if readers is None or int(readers) <= 0:
-                break
-            time.sleep(0.05)
-        else:
-            self._client.delete(key + ":writer")
-            raise LockAcquireError(f"Write lock '{name}': readers did not drain in time")
 
         try:
             yield

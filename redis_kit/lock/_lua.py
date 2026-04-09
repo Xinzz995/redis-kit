@@ -62,3 +62,41 @@ else
     return 0
 end
 """
+
+# Read lock: atomically increment readers and set expire
+READ_ACQUIRE = """
+local key = KEYS[1]
+local timeout = tonumber(ARGV[1])
+local writer = redis.call("get", key .. ":writer")
+if writer then
+    return 0
+end
+redis.call("hincrby", key, "readers", 1)
+redis.call("expire", key, timeout)
+return 1
+"""
+
+READ_RELEASE = """
+local key = KEYS[1]
+local count = redis.call("hincrby", key, "readers", -1)
+if count <= 0 then
+    redis.call("hdel", key, "readers")
+end
+return 1
+"""
+
+WRITE_ACQUIRE = """
+local key = KEYS[1]
+local owner = ARGV[1]
+local timeout = tonumber(ARGV[2])
+local writer = redis.call("get", key .. ":writer")
+if writer then
+    return 0
+end
+local readers = redis.call("hget", key, "readers")
+if readers and tonumber(readers) > 0 then
+    return 0
+end
+redis.call("set", key .. ":writer", owner, "EX", timeout, "NX")
+return 1
+"""

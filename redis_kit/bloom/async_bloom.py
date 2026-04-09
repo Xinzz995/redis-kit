@@ -17,9 +17,10 @@ class AsyncBloomFilter:
         name: str,
         expected_items: int = 10_000,
         false_positive_rate: float = 0.01,
+        prefix: str = "redis_kit:bloom",
     ) -> None:
         self._client = client
-        self._key = f"redis_kit:bloom:{name}"
+        self._key = f"{prefix}:{name}"
         self._size = self._optimal_size(expected_items, false_positive_rate)
         self._hash_count = self._optimal_hash_count(self._size, expected_items)
 

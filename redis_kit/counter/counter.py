@@ -63,9 +63,10 @@ class IDGenerator:
         name: str,
         prefix: str = "",
         padding: int = 0,
+        key_prefix: str = "redis_kit:id",
     ) -> None:
         self._client = client
-        self._key = f"redis_kit:id:{name}"
+        self._key = f"{key_prefix}:{name}"
         self._prefix = prefix
         self._padding = padding
 
