@@ -1,5 +1,5 @@
-from redis_kit.observability.metrics import MetricsCollector
 from redis_kit.hooks import CommandHook
+from redis_kit.observability.metrics import MetricsCollector
 
 
 class TestMetricsCollector:

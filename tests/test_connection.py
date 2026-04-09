@@ -53,9 +53,7 @@ class TestConnectionManagerSync:
 class TestConnectionManagerAsync:
     @pytest.mark.asyncio
     async def test_async_client_returns_redis_instance(self):
-        conn = ConnectionManager._from_clients(
-            async_client=fakeredis.aioredis.FakeRedis()
-        )
+        conn = ConnectionManager._from_clients(async_client=fakeredis.aioredis.FakeRedis())
         client = conn.async_client
         await client.set("test", "value")
         result = await client.get("test")
@@ -64,8 +62,6 @@ class TestConnectionManagerAsync:
 
     @pytest.mark.asyncio
     async def test_aclose_cleans_up(self):
-        conn = ConnectionManager._from_clients(
-            async_client=fakeredis.aioredis.FakeRedis()
-        )
+        conn = ConnectionManager._from_clients(async_client=fakeredis.aioredis.FakeRedis())
         _ = conn.async_client
         await conn.aclose()

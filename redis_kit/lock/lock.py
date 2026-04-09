@@ -68,9 +68,7 @@ class Lock:
             else:
                 self._release_basic(key, owner, name)
 
-    def _acquire_basic(
-        self, key: str, owner: str, timeout: int, blocking_timeout: float | None
-    ) -> bool:
+    def _acquire_basic(self, key: str, owner: str, timeout: int, blocking_timeout: float | None) -> bool:
         if blocking_timeout is not None:
             import time
 
@@ -87,9 +85,7 @@ class Lock:
         if not result:
             raise LockReleaseError(f"Failed to release lock '{name}': not owner")
 
-    def _acquire_reentrant(
-        self, key: str, owner: str, timeout: int, blocking_timeout: float | None
-    ) -> bool:
+    def _acquire_reentrant(self, key: str, owner: str, timeout: int, blocking_timeout: float | None) -> bool:
         if blocking_timeout is not None:
             import time
 
@@ -106,9 +102,7 @@ class Lock:
         if not result:
             raise LockReleaseError(f"Failed to release reentrant lock '{name}': not owner")
 
-    def _start_watchdog(
-        self, key: str, owner: str, timeout: int, reentrant: bool
-    ) -> threading.Timer:
+    def _start_watchdog(self, key: str, owner: str, timeout: int, reentrant: bool) -> threading.Timer:
         interval = timeout / 3
 
         def renew() -> None:

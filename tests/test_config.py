@@ -22,6 +22,7 @@ class TestConnectionConfig:
     def test_frozen(self):
         config = ConnectionConfig()
         import pytest
+
         with pytest.raises(AttributeError):
             config.host = "other"  # type: ignore[misc]
 
@@ -68,5 +69,6 @@ class TestNamespaceConfig:
     def test_frozen(self):
         ns = NamespaceConfig()
         import pytest
+
         with pytest.raises(AttributeError):
             ns.prefix = "other"  # type: ignore[misc]

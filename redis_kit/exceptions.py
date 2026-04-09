@@ -7,11 +7,13 @@ from typing import Any, Literal
 
 # --- Base ---
 
+
 class RedisKitError(Exception):
     """Base exception for all redis-kit errors."""
 
 
 # --- Connection ---
+
 
 class RedisConnectionError(RedisKitError):
     """Redis connection failed."""
@@ -23,11 +25,13 @@ class ConnectionPoolExhaustedError(RedisConnectionError):
 
 # --- Serialization ---
 
+
 class SerializationError(RedisKitError):
     """Serialization or deserialization failed."""
 
 
 # --- Lock ---
+
 
 class LockError(RedisKitError):
     """Base lock error."""
@@ -43,11 +47,13 @@ class LockReleaseError(LockError):
 
 # --- Cache ---
 
+
 class CacheError(RedisKitError):
     """Cache operation failed."""
 
 
 # --- Queue ---
+
 
 class QueueError(RedisKitError):
     """Queue operation failed."""
@@ -59,11 +65,13 @@ class QueueEmptyError(QueueError):
 
 # --- Bloom ---
 
+
 class BloomFilterError(RedisKitError):
     """Bloom filter operation failed."""
 
 
 # --- Session ---
+
 
 class SessionError(RedisKitError):
     """Session operation failed."""
@@ -74,6 +82,7 @@ class SessionNotFoundError(SessionError):
 
 
 # --- Fallback Policy ---
+
 
 @dataclass
 class FallbackPolicy:

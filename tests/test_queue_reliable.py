@@ -1,8 +1,8 @@
-import pytest
 import fakeredis
+import pytest
 
-from redis_kit.queue.reliable_queue import ReliableQueue
 from redis_kit.exceptions import QueueEmptyError
+from redis_kit.queue.reliable_queue import ReliableQueue
 
 
 class TestReliableQueue:

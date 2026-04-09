@@ -69,9 +69,7 @@ class AsyncLock:
             else:
                 await self._release_basic(key, owner, name)
 
-    async def _acquire_basic(
-        self, key: str, owner: str, timeout: int, blocking_timeout: float | None
-    ) -> bool:
+    async def _acquire_basic(self, key: str, owner: str, timeout: int, blocking_timeout: float | None) -> bool:
         if blocking_timeout is not None:
             import time
 
@@ -88,9 +86,7 @@ class AsyncLock:
         if not result:
             raise LockReleaseError(f"Failed to release lock '{name}': not owner")
 
-    async def _acquire_reentrant(
-        self, key: str, owner: str, timeout: int, blocking_timeout: float | None
-    ) -> bool:
+    async def _acquire_reentrant(self, key: str, owner: str, timeout: int, blocking_timeout: float | None) -> bool:
         if blocking_timeout is not None:
             import time
 
