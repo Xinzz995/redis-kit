@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import fakeredis
+import fakeredis.aioredis
 import pytest
 
 from redis_kit.exceptions import (
@@ -9,6 +10,7 @@ from redis_kit.exceptions import (
     RedisKitError,
     RepositoryError,
 )
+from redis_kit.repository.async_repository import AsyncRepository
 from redis_kit.repository.model import BaseModel
 from redis_kit.repository.repository import Repository
 
@@ -207,3 +209,52 @@ class TestRepositoryHistory:
         repo = self._make_repo()
         saved = repo.save(SampleEntity(name="key", value="v1"))
         assert len(repo.get_history(saved.id)) == 0
+
+
+class TestAsyncRepository:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        yield
+
+    def _make_repo(self):
+        return AsyncRepository(self.client, SampleEntity, prefix="test")
+
+    @pytest.mark.asyncio
+    async def test_save_and_find(self):
+        repo = self._make_repo()
+        saved = await repo.save(SampleEntity(name="key", value="val"))
+        found = await repo.find(saved.id)
+        assert found is not None
+        assert found.name == "key"
+        assert found.version == 1
+
+    @pytest.mark.asyncio
+    async def test_soft_delete_and_restore(self):
+        repo = self._make_repo()
+        saved = await repo.save(SampleEntity(name="key", value="val"))
+        await repo.delete(saved.id)
+        assert await repo.find(saved.id) is None
+        restored = await repo.restore(saved.id)
+        assert restored.deleted is False
+
+    @pytest.mark.asyncio
+    async def test_optimistic_lock(self):
+        repo = self._make_repo()
+        saved = await repo.save(SampleEntity(name="k", value="v1"))
+        stale = await repo.find(saved.id)
+        saved.value = "v2"
+        await repo.save(saved)
+        stale.value = "v3"
+        with pytest.raises(OptimisticLockError):
+            await repo.save(stale)
+
+    @pytest.mark.asyncio
+    async def test_history(self):
+        repo = self._make_repo()
+        saved = await repo.save(SampleEntity(name="k", value="v1"))
+        saved.value = "v2"
+        saved = await repo.save(saved)
+        history = await repo.get_history(saved.id)
+        assert len(history) == 1
+        assert history[0].value == "v1"
