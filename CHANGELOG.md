@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0] - 2026-04-10
+
+### Added
+- **Redis Streams** module — consumer group abstraction replacing ReliableQueue:
+  - `StreamProducer` / `AsyncStreamProducer` — XADD, XLEN, XTRIM
+  - `StreamConsumer` / `AsyncStreamConsumer` — XREADGROUP with auto/manual ACK, consumer group management
+  - `StreamMessage` — message dataclass with `.ack()` support
+  - `ensure_group()` — idempotent consumer group creation (XGROUP CREATE)
+  - `claim_stale()` — dead letter handling via XAUTOCLAIM
+  - `pending()` — view unacknowledged messages via XPENDING
+  - `StreamError` exception
+- 14 new tests (244 total)
+
 ## [0.4.0] - 2026-04-10
 
 ### Added
