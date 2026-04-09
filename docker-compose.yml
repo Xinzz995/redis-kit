@@ -1,0 +1,93 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis-master:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis-sentinel:
+    image: redis:7-alpine
+    ports:
+      - "26379:26379"
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    entrypoint: >
+      sh -c '
+        echo "sentinel monitor mymaster redis-master 6379 1" > /tmp/sentinel.conf &&
+        echo "sentinel down-after-milliseconds mymaster 5000" >> /tmp/sentinel.conf &&
+        echo "sentinel failover-timeout mymaster 10000" >> /tmp/sentinel.conf &&
+        redis-sentinel /tmp/sentinel.conf
+      '
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis-node-1:
+    image: redis:7-alpine
+    ports:
+      - "7001:7001"
+    command: redis-server --port 7001 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "7001", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis-node-2:
+    image: redis:7-alpine
+    ports:
+      - "7002:7002"
+    command: redis-server --port 7002 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "7002", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis-node-3:
+    image: redis:7-alpine
+    ports:
+      - "7003:7003"
+    command: redis-server --port 7003 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "7003", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  cluster-init:
+    image: redis:7-alpine
+    depends_on:
+      redis-node-1:
+        condition: service_healthy
+      redis-node-2:
+        condition: service_healthy
+      redis-node-3:
+        condition: service_healthy
+    entrypoint: >
+      sh -c '
+        echo "yes" | redis-cli --cluster create
+        redis-node-1:7001
+        redis-node-2:7002
+        redis-node-3:7003
+        --cluster-replicas 0 &&
+        echo "Cluster created successfully"
+      '
+    restart: "no"
