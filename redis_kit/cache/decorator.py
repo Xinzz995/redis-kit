@@ -20,7 +20,7 @@ def cached(
     ttl: str | int | Callable[..., str | int],
     serializer: Serializer | None = None,
     bypass: Callable[..., bool] | None = None,
-    lock: bool = False,
+    prefix: str = "",
     ttl_jitter: float = 0.1,
 ) -> Callable:
     """Decorator to cache function results in Redis.
@@ -33,7 +33,7 @@ def cached(
         ttl: TTL in seconds, string format ("2h30m"), or callable.
         serializer: Custom serializer (default: JsonSerializer).
         bypass: Callable returning True to skip cache for this call.
-        lock: If True, use distributed lock on cache miss (anti-breakdown).
+        prefix: Optional key prefix prepended as "{prefix}:{key}".
         ttl_jitter: TTL jitter factor (0.1 = +/- 10%).
     """
     pipeline = DataPipeline(serializer)
@@ -46,8 +46,10 @@ def cached(
             bound_args = sig.bind(*args, **kwargs)
             bound_args.apply_defaults()
             if callable(key):
-                return key(*bound_args.args, **bound_args.kwargs)
-            return key.format(**bound_args.arguments)
+                raw_key = key(*bound_args.args, **bound_args.kwargs)
+            else:
+                raw_key = key.format(**bound_args.arguments)
+            return f"{prefix}:{raw_key}" if prefix else raw_key
 
         def _resolve_ttl(args: tuple, kwargs: dict) -> int:
             if callable(ttl):

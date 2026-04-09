@@ -13,6 +13,7 @@ _MISS = object()
 
 # Marker prefix for cached None values
 _NONE_MARKER = b"__REDIS_KIT_NONE__"
+_NONE_MARKER_STR = "__REDIS_KIT_NONE__"
 
 
 def parse_ttl(ttl: str | int | float) -> int:
@@ -68,7 +69,7 @@ class DataPipeline:
     def decode(self, data: bytes | None) -> Any:
         if data is None:
             return _MISS
-        if data == _NONE_MARKER:
+        if data == _NONE_MARKER or data == _NONE_MARKER_STR:
             return None
         if self.compressor:
             data = self.compressor.decompress(data)

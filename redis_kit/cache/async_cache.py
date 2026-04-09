@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -87,7 +88,7 @@ class AsyncCache:
         full_key = self._make_key(key)
         encoded = self._pipeline.encode(value)
         resolved_ttl = self._resolve_ttl(ttl)
-        if resolved_ttl:
+        if resolved_ttl is not None and resolved_ttl > 0:
             await self._client.setex(full_key, resolved_ttl, encoded)
         else:
             await self._client.set(full_key, encoded)
@@ -119,7 +120,10 @@ class AsyncCache:
         value = await self.get(key)
         if value is not None:
             return value
-        value = factory()
+        result = factory()
+        if asyncio.iscoroutine(result):
+            result = await result
+        value = result
         await self.set(key, value, ttl=ttl)
         return value
 
@@ -138,7 +142,7 @@ class AsyncCache:
         for key, value in mapping.items():
             full_key = self._make_key(key)
             encoded = self._pipeline.encode(value)
-            if resolved_ttl:
+            if resolved_ttl is not None and resolved_ttl > 0:
                 pipe.setex(full_key, resolved_ttl, encoded)
             else:
                 pipe.set(full_key, encoded)

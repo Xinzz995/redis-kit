@@ -42,9 +42,9 @@ class ReliableQueue:
 
     def get(self, timeout: int = 0) -> Message:
         if timeout > 0:
-            result = self._client.brpoplpush(self._queue_key, self._processing_key, timeout=timeout)
+            result = self._client.blmove(self._queue_key, self._processing_key, timeout, "RIGHT", "LEFT")
         else:
-            result = self._client.rpoplpush(self._queue_key, self._processing_key)
+            result = self._client.lmove(self._queue_key, self._processing_key, "RIGHT", "LEFT")
         if result is None:
             raise QueueEmptyError("Queue is empty")
         msg = json.loads(result)

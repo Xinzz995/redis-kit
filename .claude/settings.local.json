@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(gh api:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(uv sync:*)",
+      "Bash(uv run:*)",
+      "Bash(echo \"EXIT: $?\")"
+    ]
+  }
+}

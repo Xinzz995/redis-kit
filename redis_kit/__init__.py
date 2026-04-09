@@ -7,7 +7,9 @@ from redis_kit.config import ConnectionConfig, NamespaceConfig
 from redis_kit.connection import ConnectionManager
 from redis_kit.counter import AsyncCounter, AsyncIDGenerator, Counter, IDGenerator
 from redis_kit.exceptions import FallbackPolicy, RedisKitError
+from redis_kit.hooks import CompositeHook
 from redis_kit.lock import AsyncLock, Lock
+from redis_kit.observability import MetricsCollector
 from redis_kit.queue import (
     AsyncDelayQueue,
     AsyncPubSub,
@@ -54,6 +56,10 @@ __all__ = [
     "PickleSerializer",
     # Compressors
     "ZlibCompressor",
+    # Hooks
+    "CompositeHook",
+    # Observability
+    "MetricsCollector",
     # Exceptions
     "RedisKitError",
     "FallbackPolicy",

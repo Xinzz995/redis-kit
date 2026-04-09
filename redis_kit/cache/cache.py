@@ -103,7 +103,7 @@ class Cache:
         full_key = self._make_key(key)
         encoded = self._pipeline.encode(value)
         resolved_ttl = self._resolve_ttl(ttl)
-        if resolved_ttl:
+        if resolved_ttl is not None and resolved_ttl > 0:
             self._client.setex(full_key, resolved_ttl, encoded)
         else:
             self._client.set(full_key, encoded)
@@ -155,7 +155,7 @@ class Cache:
         for key, value in mapping.items():
             full_key = self._make_key(key)
             encoded = self._pipeline.encode(value)
-            if resolved_ttl:
+            if resolved_ttl is not None and resolved_ttl > 0:
                 pipe.setex(full_key, resolved_ttl, encoded)
             else:
                 pipe.set(full_key, encoded)

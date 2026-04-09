@@ -39,5 +39,16 @@ class AsyncPubSub:
         await self._pubsub.unsubscribe(full_channel)
         self._handlers.pop(full_channel, None)
 
+    async def listen(self) -> None:
+        async for message in self._pubsub.listen():
+            if message["type"] in ("message", "pmessage"):
+                channel = message.get("channel", b"")
+                if isinstance(channel, bytes):
+                    channel = channel.decode()
+                handler = self._handlers.get(channel)
+                if handler:
+                    data = json.loads(message["data"])
+                    handler(data)
+
     async def close(self) -> None:
         await self._pubsub.aclose()
