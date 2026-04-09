@@ -16,10 +16,29 @@ from redis_kit.lock._lua import (
     REENTRANT_RELEASE,
     RELEASE_LOCK,
     WRITE_ACQUIRE,
+    WRITE_RELEASE,
 )
 
 if TYPE_CHECKING:
     import redis
+
+
+class _WatchdogHandle:
+    """Tracks all timers spawned by the watchdog chain so they can all be cancelled."""
+
+    def __init__(self) -> None:
+        self._timers: list[threading.Timer] = []
+        self._lock = threading.Lock()
+
+    def add(self, timer: threading.Timer) -> None:
+        with self._lock:
+            self._timers.append(timer)
+
+    def cancel(self) -> None:
+        with self._lock:
+            for timer in self._timers:
+                timer.cancel()
+            self._timers.clear()
 
 
 class Lock:
@@ -37,6 +56,7 @@ class Lock:
         self._read_acquire_script = self._client.register_script(READ_ACQUIRE)
         self._read_release_script = self._client.register_script(READ_RELEASE)
         self._write_acquire_script = self._client.register_script(WRITE_ACQUIRE)
+        self._write_release_script = self._client.register_script(WRITE_RELEASE)
 
     def _make_key(self, name: str) -> str:
         base = f"{self._prefix}:{name}" if self._prefix else name
@@ -55,7 +75,7 @@ class Lock:
     ) -> Iterator[None]:
         key = self._make_key(name)
         owner = f"{threading.current_thread().ident}:{uuid.uuid4().hex[:8]}"
-        renew_timer: threading.Timer | None = None
+        renew_timer: _WatchdogHandle | None = None
 
         if reentrant:
             owner = f"thread:{threading.current_thread().ident}"
@@ -112,8 +132,9 @@ class Lock:
         if not result:
             raise LockReleaseError(f"Failed to release reentrant lock '{name}': not owner")
 
-    def _start_watchdog(self, key: str, owner: str, timeout: int, reentrant: bool) -> threading.Timer:
+    def _start_watchdog(self, key: str, owner: str, timeout: int, reentrant: bool) -> _WatchdogHandle:
         interval = timeout / 3
+        handle = _WatchdogHandle()
 
         def renew() -> None:
             script = self._extend_reentrant_script if reentrant else self._extend_script
@@ -121,18 +142,21 @@ class Lock:
             if result:
                 timer = threading.Timer(interval, renew)
                 timer.daemon = True
+                handle.add(timer)
                 timer.start()
 
         timer = threading.Timer(interval, renew)
         timer.daemon = True
+        handle.add(timer)
         timer.start()
-        return timer
+        return handle
 
     @contextmanager
     def read(self, name: str, timeout: int = 10) -> Iterator[None]:
         """Acquire a read lock (shared). Multiple readers allowed."""
         key = self._make_key(name) + ":rwlock"
-        acquired = self._read_acquire_script(keys=[key], args=[timeout])
+        writer_key = key + ":writer"
+        acquired = self._read_acquire_script(keys=[key, writer_key], args=[timeout])
         if not acquired:
             raise LockAcquireError(f"Failed to acquire read lock '{name}': writer active")
         try:
@@ -146,16 +170,13 @@ class Lock:
         import time
 
         key = self._make_key(name) + ":rwlock"
+        writer_key = key + ":writer"
         owner = uuid.uuid4().hex
         deadline = time.monotonic() + blocking_timeout
 
         while time.monotonic() < deadline:
-            if self._client.set(key + ":writer", owner, nx=True, ex=timeout):
-                readers = self._client.hget(key, "readers")
-                if readers is None or int(readers) <= 0:
-                    break
-                # Readers still active, release writer and retry
-                self._client.delete(key + ":writer")
+            if self._write_acquire_script(keys=[key, writer_key], args=[owner, timeout]):
+                break
             time.sleep(0.05)
         else:
             raise LockAcquireError(f"Failed to acquire write lock '{name}'")
@@ -163,4 +184,4 @@ class Lock:
         try:
             yield
         finally:
-            self._client.delete(key + ":writer")
+            self._write_release_script(keys=[writer_key], args=[owner])

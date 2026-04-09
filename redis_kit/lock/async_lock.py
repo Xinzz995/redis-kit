@@ -16,6 +16,7 @@ from redis_kit.lock._lua import (
     REENTRANT_RELEASE,
     RELEASE_LOCK,
     WRITE_ACQUIRE,
+    WRITE_RELEASE,
 )
 
 if TYPE_CHECKING:
@@ -37,6 +38,7 @@ class AsyncLock:
         self._read_acquire_script = self._client.register_script(READ_ACQUIRE)
         self._read_release_script = self._client.register_script(READ_RELEASE)
         self._write_acquire_script = self._client.register_script(WRITE_ACQUIRE)
+        self._write_release_script = self._client.register_script(WRITE_RELEASE)
 
     def _make_key(self, name: str) -> str:
         base = f"{self._prefix}:{name}" if self._prefix else name
@@ -126,7 +128,8 @@ class AsyncLock:
     async def read(self, name: str, timeout: int = 10) -> AsyncIterator[None]:
         """Acquire a read lock (shared). Multiple readers allowed."""
         key = self._make_key(name) + ":rwlock"
-        acquired = await self._read_acquire_script(keys=[key], args=[timeout])
+        writer_key = key + ":writer"
+        acquired = await self._read_acquire_script(keys=[key, writer_key], args=[timeout])
         if not acquired:
             raise LockAcquireError(f"Failed to acquire read lock '{name}': writer active")
         try:
@@ -140,16 +143,13 @@ class AsyncLock:
         import time
 
         key = self._make_key(name) + ":rwlock"
+        writer_key = key + ":writer"
         owner = uuid.uuid4().hex
         deadline = time.monotonic() + blocking_timeout
 
         while time.monotonic() < deadline:
-            if await self._client.set(key + ":writer", owner, nx=True, ex=timeout):
-                readers = await self._client.hget(key, "readers")
-                if readers is None or int(readers) <= 0:
-                    break
-                # Readers still active, release writer and retry
-                await self._client.delete(key + ":writer")
+            if await self._write_acquire_script(keys=[key, writer_key], args=[owner, timeout]):
+                break
             await asyncio.sleep(0.05)
         else:
             raise LockAcquireError(f"Failed to acquire write lock '{name}'")
@@ -157,4 +157,4 @@ class AsyncLock:
         try:
             yield
         finally:
-            await self._client.delete(key + ":writer")
+            await self._write_release_script(keys=[writer_key], args=[owner])

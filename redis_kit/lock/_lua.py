@@ -64,10 +64,12 @@ end
 """
 
 # Read lock: atomically increment readers and set expire
+# KEYS[1]=rwlock hash, KEYS[2]=writer key
 READ_ACQUIRE = """
 local key = KEYS[1]
+local writer_key = KEYS[2]
 local timeout = tonumber(ARGV[1])
-local writer = redis.call("get", key .. ":writer")
+local writer = redis.call("get", writer_key)
 if writer then
     return 0
 end
@@ -85,11 +87,14 @@ end
 return 1
 """
 
+# Write lock: atomically check readers and set writer
+# KEYS[1]=rwlock hash, KEYS[2]=writer key
 WRITE_ACQUIRE = """
 local key = KEYS[1]
+local writer_key = KEYS[2]
 local owner = ARGV[1]
 local timeout = tonumber(ARGV[2])
-local writer = redis.call("get", key .. ":writer")
+local writer = redis.call("get", writer_key)
 if writer then
     return 0
 end
@@ -97,6 +102,19 @@ local readers = redis.call("hget", key, "readers")
 if readers and tonumber(readers) > 0 then
     return 0
 end
-redis.call("set", key .. ":writer", owner, "EX", timeout, "NX")
+redis.call("set", writer_key, owner, "EX", timeout)
 return 1
+"""
+
+# Write lock release: delete writer key only if owner matches
+# KEYS[1]=writer key
+WRITE_RELEASE = """
+local writer_key = KEYS[1]
+local owner = ARGV[1]
+local current = redis.call("get", writer_key)
+if current == owner then
+    redis.call("del", writer_key)
+    return 1
+end
+return 0
 """
