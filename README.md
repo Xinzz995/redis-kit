@@ -17,6 +17,7 @@ Enterprise-grade Python Redis toolkit with sync/async dual-mode APIs.
 - **Rate Limiter** — Token bucket (burst-tolerant) and sliding window (exact count), Lua-scripted, `@rate_limit` decorator
 - **Tiered Cache** — L1 local LRU + L2 Redis, read-through backfill, negative caching, zero dependencies
 - **Redis Streams** — Consumer groups with auto/manual ACK, dead letter recovery (XAUTOCLAIM)
+- **Repository** — Dataclass entity → Redis Hash, CRUD, optimistic locking, soft delete, audit fields, version history
 - **Observability** — MetricsCollector hook, OpenTelemetry integration (optional)
 - **Pluggable Serialization** — JSON (default), Pickle, MessagePack (optional)
 - **Pluggable Compression** — Zlib, Zstandard (optional), LZ4 (optional)
@@ -299,6 +300,50 @@ for msg in stale:
     msg.ack()
 ```
 
+### Repository
+
+```python
+from dataclasses import dataclass
+from redis_kit import Repository, BaseModel
+
+@dataclass
+class AppConfig(BaseModel):
+    name: str = ""
+    value: str = ""
+    env: str = "production"
+
+repo = Repository(conn.sync_client, AppConfig, prefix="config")
+
+# Create — auto ID, version=1, created_at
+config = repo.save(AppConfig(name="max_retries", value="3"))
+
+# Read
+found = repo.find(config.id)
+
+# Update — optimistic lock, auto version increment
+found.value = "5"
+updated = repo.save(found)  # version 1→2, updated_at auto
+
+# Concurrent conflict detection
+stale = repo.find(config.id)
+updated.value = "10"
+repo.save(updated)        # OK (version 2→3)
+stale.value = "20"
+repo.save(stale)           # OptimisticLockError!
+
+# Soft delete + restore
+repo.delete(config.id)              # Marks deleted=True
+repo.find(config.id)                # None
+repo.find_including_deleted(config.id)  # Still accessible
+repo.restore(config.id)             # Recovered
+
+# Version history
+history = repo.get_history(config.id)  # [v2, v1] — all previous versions
+
+# Hard delete (permanent)
+repo.hard_delete(config.id)
+```
+
 ### Async Usage
 
 Every module has an async counterpart:
@@ -412,7 +457,10 @@ RedisKitError
 ├── SessionError
 │   └── SessionNotFoundError
 ├── RateLimitExceeded
-└── StreamError
+├── StreamError
+└── RepositoryError
+    ├── EntityNotFoundError
+    └── OptimisticLockError
 ```
 
 ## Requirements
