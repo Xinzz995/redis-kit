@@ -1,5 +1,9 @@
 import fakeredis
+import fakeredis.aioredis
+import pytest
 
+from redis_kit.cache.async_cache import AsyncCache
+from redis_kit.cache.async_tiered import AsyncTieredCache
 from redis_kit.cache.cache import Cache
 from redis_kit.cache.tiered import TieredCache
 
@@ -180,3 +184,42 @@ class TestTieredCacheLocalManagement:
         assert cache.local_size == 0
         cache.set("a", 1)
         assert cache.local_size == 1
+
+
+class TestAsyncTieredCache:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        self.l2 = AsyncCache(self.client, prefix="test", ttl_jitter=0)
+        yield
+
+    def _make(self, **kwargs):
+        return AsyncTieredCache(self.l2, local_maxsize=100, local_ttl=60, **kwargs)
+
+    @pytest.mark.asyncio
+    async def test_get_backfills_l1(self):
+        cache = self._make()
+        await self.l2.set("key", "value")
+        assert await cache.get("key") == "value"
+        assert cache.local_size == 1
+
+    @pytest.mark.asyncio
+    async def test_set_writes_both(self):
+        cache = self._make()
+        await cache.set("key", "value", ttl=3600)
+        assert await cache.get("key") == "value"
+        assert await self.l2.get("key") == "value"
+
+    @pytest.mark.asyncio
+    async def test_delete(self):
+        cache = self._make()
+        await cache.set("key", "value")
+        await cache.delete("key")
+        assert await cache.get("key") is None
+
+    @pytest.mark.asyncio
+    async def test_negative_cache(self):
+        cache = self._make(negative_ttl=60)
+        assert await cache.get("missing") is None
+        await self.l2.set("missing", "found")
+        assert await cache.get("missing") is None  # Negative cached
