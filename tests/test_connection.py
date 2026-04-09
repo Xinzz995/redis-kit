@@ -1,7 +1,7 @@
 import fakeredis
 import pytest
 
-from redis_kit.config import ConnectionConfig
+from redis_kit.config import ClusterConfig, ConnectionConfig, SentinelConfig
 from redis_kit.connection import ConnectionManager
 
 
@@ -65,3 +65,28 @@ class TestConnectionManagerAsync:
         conn = ConnectionManager._from_clients(async_client=fakeredis.aioredis.FakeRedis())
         _ = conn.async_client
         await conn.aclose()
+
+
+class TestConnectionManagerTopology:
+    def test_standalone_topology(self):
+        conn = ConnectionManager()
+        assert conn.topology == "standalone"
+        assert conn.is_cluster is False
+        assert conn.is_sentinel is False
+        conn.close()
+
+    def test_sentinel_topology(self):
+        config = SentinelConfig(sentinels=[("localhost", 26379)], service_name="mymaster")
+        conn = ConnectionManager(config=config)
+        assert conn.topology == "sentinel"
+        assert conn.is_sentinel is True
+        assert conn.is_cluster is False
+        conn.close()
+
+    def test_cluster_topology(self):
+        config = ClusterConfig(startup_nodes=[("localhost", 6379)])
+        conn = ConnectionManager(config=config)
+        assert conn.topology == "cluster"
+        assert conn.is_cluster is True
+        assert conn.is_sentinel is False
+        conn.close()
