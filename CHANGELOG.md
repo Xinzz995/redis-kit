@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0] - 2026-04-10
+
+### Added
+- **Tiered Cache** module — L1 (local LRU) + L2 (Redis) two-tier cache:
+  - `LRUCache` — thread-safe, per-entry TTL, LRU eviction, zero dependencies
+  - `TieredCache` / `AsyncTieredCache` — transparent L1→L2 read-through with backfill
+  - Negative caching — short-TTL `_NEGATIVE` marker prevents repeated L2 miss penetration
+  - `get_many` optimization — batch L1 lookup, only missed keys go to L2
+  - Write-through — `set`/`set_many` write both L1 and L2
+  - `invalidate_local()` / `clear_local()` / `local_size` for local cache management
+- 30 new tests (230 total)
+
 ## [0.3.0] - 2026-04-10
 
 ### Added
