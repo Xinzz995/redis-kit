@@ -172,7 +172,11 @@ class Lock:
 
     @contextmanager
     def read(self, name: str, timeout: int = 10) -> Iterator[None]:
-        """Acquire a read lock (shared). Multiple readers allowed."""
+        """Acquire a read lock (shared). Multiple readers allowed.
+
+        Uses reader-preference policy: continuous readers may starve writers
+        under high contention. Exception-safe (see ``__call__``).
+        """
         key = self._make_key(name) + ":rwlock"
         writer_key = key + ":writer"
         acquired = self._read_acquire_script(keys=[key, writer_key], args=[timeout])
@@ -191,7 +195,10 @@ class Lock:
 
     @contextmanager
     def write(self, name: str, timeout: int = 10, blocking_timeout: float = 5.0) -> Iterator[None]:
-        """Acquire a write lock (exclusive). Waits for readers to finish."""
+        """Acquire a write lock (exclusive). Waits for readers to finish.
+
+        Exception-safe: release failures do not mask the original exception (see ``__call__``).
+        """
         import time
 
         key = self._make_key(name) + ":rwlock"

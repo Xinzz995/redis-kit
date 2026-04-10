@@ -54,6 +54,7 @@ class ReliableQueue:
         return Message(id=msg["id"], data=msg["data"], _queue=self, _raw=result)
 
     def _ack(self, raw: bytes) -> None:
+        """Remove message from processing list. O(N) where N is processing list length."""
         self._client.lrem(self._processing_key, 1, raw)
 
     def _nack(self, raw: bytes, data: Any) -> None:
