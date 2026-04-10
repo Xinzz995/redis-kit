@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from datetime import timezone
+from datetime import UTC
 
 import fakeredis
 import fakeredis.aioredis
@@ -373,16 +373,19 @@ class TestFromHashMissingFieldNoDefault:
 
         # Manually write an incomplete hash (missing 'label' field with default -> OK)
         key = "test:manual1"
-        self.client.hset(key, mapping={
-            "id": "manual1",
-            "version": "1",
-            "created_at": "__NONE__",
-            "updated_at": "__NONE__",
-            "deleted": "0",
-            "deleted_at": "__NONE__",
-            "age": "25",
-            # 'label' is missing but has default="" -> should use default
-        })
+        self.client.hset(
+            key,
+            mapping={
+                "id": "manual1",
+                "version": "1",
+                "created_at": "__NONE__",
+                "updated_at": "__NONE__",
+                "deleted": "0",
+                "deleted_at": "__NONE__",
+                "age": "25",
+                # 'label' is missing but has default="" -> should use default
+            },
+        )
         entity = repo.find("manual1")
         assert entity is not None
         assert entity.label == ""
@@ -433,15 +436,18 @@ class TestAsyncFromHashMissingFieldNoDefault:
 
         repo = AsyncRepository(self.client, StrictEntity, prefix="test")
         key = "test:manual1"
-        await self.client.hset(key, mapping={
-            "id": "manual1",
-            "version": "1",
-            "created_at": "__NONE__",
-            "updated_at": "__NONE__",
-            "deleted": "0",
-            "deleted_at": "__NONE__",
-            "age": "25",
-        })
+        await self.client.hset(
+            key,
+            mapping={
+                "id": "manual1",
+                "version": "1",
+                "created_at": "__NONE__",
+                "updated_at": "__NONE__",
+                "deleted": "0",
+                "deleted_at": "__NONE__",
+                "age": "25",
+            },
+        )
         entity = await repo.find("manual1")
         assert entity is not None
         assert entity.label == ""
@@ -476,7 +482,7 @@ class TestTypeHintsWarning:
         with patch.object(typing, "get_type_hints", side_effect=NameError("undefined")):
             with caplog.at_level(logging.WARNING, logger="redis_kit"):
                 # This should still work but log a warning
-                found = repo.find(saved.id)
+                repo.find(saved.id)
 
         assert any("Failed to resolve type hints" in record.message for record in caplog.records)
 
@@ -499,7 +505,7 @@ class TestAsyncTypeHintsWarning:
 
         with patch.object(typing, "get_type_hints", side_effect=NameError("undefined")):
             with caplog.at_level(logging.WARNING, logger="redis_kit"):
-                found = await repo.find(saved.id)
+                await repo.find(saved.id)
 
         assert any("Failed to resolve type hints" in record.message for record in caplog.records)
 
@@ -526,9 +532,9 @@ class TestDatetimeUTC:
         repo = self._make_repo()
         saved = repo.save(SampleEntity(name="key", value="val"))
         assert saved.created_at.tzinfo is not None
-        assert saved.created_at.tzinfo == timezone.utc
+        assert saved.created_at.tzinfo == UTC
         assert saved.updated_at.tzinfo is not None
-        assert saved.updated_at.tzinfo == timezone.utc
+        assert saved.updated_at.tzinfo == UTC
 
     def test_save_update_has_utc_timestamp(self):
         repo = self._make_repo()
@@ -536,7 +542,7 @@ class TestDatetimeUTC:
         saved.value = "v2"
         updated = repo.save(saved)
         assert updated.updated_at.tzinfo is not None
-        assert updated.updated_at.tzinfo == timezone.utc
+        assert updated.updated_at.tzinfo == UTC
 
     def test_delete_writes_utc_timestamp(self):
         repo = self._make_repo()
@@ -545,7 +551,7 @@ class TestDatetimeUTC:
         found = repo.find_including_deleted(saved.id)
         assert found.deleted_at is not None
         assert found.deleted_at.tzinfo is not None
-        assert found.updated_at.tzinfo == timezone.utc
+        assert found.updated_at.tzinfo == UTC
 
 
 class TestAsyncDatetimeUTC:
@@ -564,9 +570,9 @@ class TestAsyncDatetimeUTC:
         repo = self._make_repo()
         saved = await repo.save(SampleEntity(name="key", value="val"))
         assert saved.created_at.tzinfo is not None
-        assert saved.created_at.tzinfo == timezone.utc
+        assert saved.created_at.tzinfo == UTC
         assert saved.updated_at.tzinfo is not None
-        assert saved.updated_at.tzinfo == timezone.utc
+        assert saved.updated_at.tzinfo == UTC
 
     @pytest.mark.asyncio
     async def test_save_update_has_utc_timestamp(self):
@@ -575,7 +581,7 @@ class TestAsyncDatetimeUTC:
         saved.value = "v2"
         updated = await repo.save(saved)
         assert updated.updated_at.tzinfo is not None
-        assert updated.updated_at.tzinfo == timezone.utc
+        assert updated.updated_at.tzinfo == UTC
 
     @pytest.mark.asyncio
     async def test_delete_writes_utc_timestamp(self):
@@ -585,7 +591,7 @@ class TestAsyncDatetimeUTC:
         found = await repo.find_including_deleted(saved.id)
         assert found.deleted_at is not None
         assert found.deleted_at.tzinfo is not None
-        assert found.updated_at.tzinfo == timezone.utc
+        assert found.updated_at.tzinfo == UTC
 
 
 # ============================================================
@@ -695,12 +701,12 @@ class TestAsyncDeleteOptimisticLock:
         saved.value = "v2"
         await repo.save(saved)
 
-        found = await repo.find(entity_id)
+        await repo.find(entity_id)
         found_copy = await repo.find(entity_id)
         found_copy.value = "v3"
         await repo.save(found_copy)
 
-        from unittest.mock import AsyncMock, patch
+        from unittest.mock import patch
 
         stale_data = {
             b"id": b"placeholder",

@@ -6,7 +6,7 @@ from redis_kit.observability.metrics import MetricsCollector
 try:
     from unittest.mock import MagicMock, patch
 
-    from opentelemetry import trace
+    from opentelemetry import trace  # noqa: F401
 
     _otel_available = True
 except ImportError:

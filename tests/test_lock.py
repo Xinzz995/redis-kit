@@ -78,9 +78,7 @@ class TestBasicLock:
 
         # After pruning, at most 1 active timer should remain in the list
         # (the one scheduled by the most recent renewal that hasn't fired yet).
-        assert timer_count <= 2, (
-            f"Expected at most 2 timers in watchdog handle after pruning, got {timer_count}"
-        )
+        assert timer_count <= 2, f"Expected at most 2 timers in watchdog handle after pruning, got {timer_count}"
 
 
 class TestAsyncLock:
