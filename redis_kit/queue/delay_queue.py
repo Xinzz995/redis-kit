@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+import uuid
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -29,13 +30,18 @@ class DelayQueue:
 
     def put(self, data: Any, delay: int) -> None:
         score = time.time() + delay
-        payload = json.dumps(data).encode("utf-8")
+        msg_id = uuid.uuid4().hex[:12]
+        payload = json.dumps({"id": msg_id, "data": data}).encode("utf-8")
         self._client.zadd(self._key, {payload: score})
 
     def poll(self, count: int = 10) -> list[Any]:
         now = time.time()
         results = self._poll_script(keys=[self._key], args=[now, count])
-        return [json.loads(r) for r in results]
+        items: list[Any] = []
+        for r in results:
+            msg = json.loads(r)
+            items.append(msg["data"] if isinstance(msg, dict) and "data" in msg else msg)
+        return items
 
     def size(self) -> int:
         return self._client.zcard(self._key)

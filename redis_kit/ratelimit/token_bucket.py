@@ -21,6 +21,10 @@ class TokenBucketLimiter:
         rate: float = 10.0,
         capacity: int = 50,
     ) -> None:
+        if rate <= 0:
+            raise ValueError("rate must be positive")
+        if capacity <= 0:
+            raise ValueError("capacity must be positive")
         self._client = client
         self._prefix = prefix
         self._rate = rate

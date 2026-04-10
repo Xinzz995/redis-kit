@@ -63,3 +63,7 @@ class BloomFilter:
         for item in items:
             results.append(self.exists(item))
         return results
+
+    def reset(self) -> None:
+        """Delete the bloom filter key, resetting it."""
+        self._client.delete(self._key)

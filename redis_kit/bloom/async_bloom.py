@@ -63,3 +63,7 @@ class AsyncBloomFilter:
         for item in items:
             results.append(await self.exists(item))
         return results
+
+    async def reset(self) -> None:
+        """Delete the bloom filter key, resetting it."""
+        await self._client.delete(self._key)
