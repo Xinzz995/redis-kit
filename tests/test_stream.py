@@ -1,5 +1,5 @@
 import time
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import fakeredis
 import fakeredis.aioredis
@@ -277,3 +277,52 @@ class TestStreamConsumerPending:
 
         claimed = c2.claim_stale(min_idle_ms=0, count=10)
         assert len(claimed) >= 1
+
+
+class TestClaimStaleMock:
+    """Mock-based tests for claim_stale since fakeredis doesn't support XAUTOCLAIM."""
+
+    def test_claim_stale_parses_xautoclaim_response(self):
+        client = MagicMock()
+        consumer = StreamConsumer(client, stream="s", group="g", consumer_name="c", auto_ack=False)
+        # xautoclaim returns [next_start_id, [(msg_id, data), ...], deleted_ids]
+        client.xautoclaim.return_value = [
+            b"0-0",
+            [(b"1-0", {b"key": b"val"}), (b"2-0", {b"a": b"b"})],
+            [],
+        ]
+        msgs = consumer.claim_stale(min_idle_ms=5000, count=10)
+        assert len(msgs) == 2
+        assert msgs[0].id == "1-0"
+        assert msgs[0].data == {"key": "val"}
+        assert msgs[1].id == "2-0"
+        assert msgs[1].data == {"a": "b"}
+        client.xautoclaim.assert_called_once_with(
+            "s",
+            "g",
+            "c",
+            min_idle_time=5000,
+            start_id="0-0",
+            count=10,
+        )
+
+    def test_claim_stale_empty_result(self):
+        client = MagicMock()
+        consumer = StreamConsumer(client, stream="s", group="g", consumer_name="c", auto_ack=False)
+        client.xautoclaim.return_value = [b"0-0", [], []]
+        msgs = consumer.claim_stale(min_idle_ms=1000, count=5)
+        assert msgs == []
+
+    @pytest.mark.asyncio
+    async def test_async_claim_stale_parses_response(self):
+        client = AsyncMock()
+        consumer = AsyncStreamConsumer(client, stream="s", group="g", consumer_name="c", auto_ack=False)
+        client.xautoclaim.return_value = [
+            b"0-0",
+            [(b"3-0", {b"msg": b"hello"})],
+            [],
+        ]
+        msgs = await consumer.claim_stale(min_idle_ms=10000, count=5)
+        assert len(msgs) == 1
+        assert msgs[0].id == "3-0"
+        assert msgs[0].data == {"msg": "hello"}

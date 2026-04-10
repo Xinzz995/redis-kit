@@ -608,3 +608,64 @@ class TestAsyncCacheFallbackPolicy:
     async def test_callback_policy_no_callback_raises_at_construction(self):
         with pytest.raises(ValueError, match="fallback"):
             FallbackPolicy(on_connection_error="callback", fallback=None)
+
+
+class TestCacheEdgeCases:
+    """Edge case tests for empty inputs and boundary conditions."""
+
+    def setup_method(self):
+        self.client = fakeredis.FakeRedis(decode_responses=False)
+
+    def teardown_method(self):
+        self.client.flushall()
+        self.client.close()
+
+    def _make_cache(self, **kwargs):
+        return Cache(self.client, prefix="test:edge", ttl_jitter=0, **kwargs)
+
+    def test_get_many_empty_keys(self):
+        cache = self._make_cache()
+        result = cache.get_many([])
+        assert result == {}
+
+    def test_set_many_empty_mapping(self):
+        cache = self._make_cache()
+        cache.set_many({}, ttl=60)  # should not raise
+
+    def test_set_many_empty_mapping_with_ttl(self):
+        cache = self._make_cache()
+        cache.set_many({}, ttl="1h")  # should not raise
+
+    def test_set_ttl_zero_creates_permanent_key(self):
+        cache = self._make_cache()
+        cache.set("perm", "value", ttl=0)
+        assert cache.get("perm") == "value"
+        assert cache.ttl("perm") == -1  # no expiry
+
+    def test_delete_pattern_no_matches(self):
+        cache = self._make_cache()
+        count = cache.delete_pattern("nonexistent:*")
+        assert count == 0
+
+
+class TestAsyncCacheEdgeCases:
+    """Async edge case tests."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        yield
+
+    def _make_cache(self, **kwargs):
+        return AsyncCache(self.client, prefix="test:edge", ttl_jitter=0, **kwargs)
+
+    @pytest.mark.asyncio
+    async def test_get_many_empty_keys(self):
+        cache = self._make_cache()
+        result = await cache.get_many([])
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_set_many_empty_mapping(self):
+        cache = self._make_cache()
+        await cache.set_many({}, ttl=60)
