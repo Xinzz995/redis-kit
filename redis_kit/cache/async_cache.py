@@ -153,11 +153,14 @@ class AsyncCache:
 
     async def delete(self, key: str) -> None:
         self._notify_hooks("before", "DELETE", key, args=())
+        start = time.monotonic()
         try:
             await self._client.delete(self._make_key(key))
         except Exception as e:
             self._notify_hooks("error", "DELETE", key, error=e)
             raise
+        duration = (time.monotonic() - start) * 1000
+        self._notify_hooks("after", "DELETE", key, result=None, duration_ms=duration)
 
     async def ttl(self, key: str) -> int:
         return await self._client.ttl(self._make_key(key))

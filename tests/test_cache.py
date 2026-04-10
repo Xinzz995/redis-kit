@@ -330,13 +330,14 @@ class TestCacheHooksLifecycle:
         phases = [c[0] for c in self.hook.calls]
         assert phases == ["before", "after"]
 
-    def test_delete_calls_before_hook(self):
+    def test_delete_calls_before_and_after_hook(self):
         cache = self._make_cache()
         cache.set("k", "v")
         self.hook.calls.clear()
         cache.delete("k")
         phases = [c[0] for c in self.hook.calls]
         assert "before" in phases
+        assert "after" in phases
 
     def test_get_error_calls_on_error(self):
         cache = self._make_cache()

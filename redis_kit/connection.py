@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
 import weakref
 from typing import Any
@@ -9,6 +10,8 @@ import redis
 import redis.asyncio
 
 from redis_kit.config import ClusterConfig, ConnectionConfig, SentinelConfig
+
+_logger = logging.getLogger("redis_kit")
 
 
 class ConnectionManager:
@@ -254,4 +257,4 @@ class ConnectionManager:
             try:
                 await client.aclose()
             except Exception:
-                pass
+                _logger.debug("Error closing async Redis client during aclose()", exc_info=True)
