@@ -19,6 +19,8 @@ _NONE_MARKER_STR = "__REDIS_KIT_NONE__"
 def parse_ttl(ttl: str | int | float) -> int:
     """Parse TTL from string like '2h30m' or numeric seconds."""
     if isinstance(ttl, (int, float)):
+        if ttl < 0:
+            raise ValueError(f"TTL must be non-negative, got {ttl}")
         return int(ttl)
     if isinstance(ttl, str):
         total = 0
@@ -38,13 +40,6 @@ def apply_jitter(ttl: int, jitter: float) -> int:
         return ttl
     delta = int(ttl * jitter)
     return max(1, ttl + random.randint(-delta, delta))
-
-
-def resolve_callable(value: Any, args: tuple, kwargs: dict) -> Any:
-    """If value is callable, call it with the function's args/kwargs."""
-    if callable(value):
-        return value(*args, **kwargs)
-    return value
 
 
 class DataPipeline:

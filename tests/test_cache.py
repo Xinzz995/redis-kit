@@ -32,6 +32,14 @@ class TestParseTtl:
         with pytest.raises(ValueError):
             parse_ttl("invalid")
 
+    def test_rejects_negative(self):
+        with pytest.raises(ValueError, match="non-negative"):
+            parse_ttl(-5)
+        with pytest.raises(ValueError, match="non-negative"):
+            parse_ttl(-1)
+        # Zero should be fine
+        assert parse_ttl(0) == 0
+
 
 class TestApplyJitter:
     def test_jitter_clamps_to_minimum_one(self):
