@@ -2,7 +2,7 @@ import fakeredis
 import fakeredis.aioredis
 import pytest
 
-from redis_kit.exceptions import LockAcquireError, LockReleaseError
+from redis_kit.exceptions import LockAcquireError
 from redis_kit.lock.async_lock import AsyncLock
 from redis_kit.lock.lock import Lock
 
