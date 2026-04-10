@@ -543,12 +543,9 @@ class TestCacheFallbackPolicy:
         assert result == "fallback_value"
         cb.assert_called_once_with("GET", "k", err)
 
-    def test_callback_policy_no_callback_reraises(self):
-        policy = FallbackPolicy(on_connection_error="callback", fallback=None)
-        cache = Cache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
-        with patch.object(self.client, "get", side_effect=RedisConnectionError("fail")):
-            with pytest.raises(RedisConnectionError):
-                cache.get("k")
+    def test_callback_policy_no_callback_raises_at_construction(self):
+        with pytest.raises(ValueError, match="fallback"):
+            FallbackPolicy(on_connection_error="callback", fallback=None)
 
     def test_default_policy_is_raise(self):
         """Cache with no explicit policy should re-raise connection errors."""
@@ -608,9 +605,6 @@ class TestAsyncCacheFallbackPolicy:
         cb.assert_called_once_with("GET", "k", err)
 
     @pytest.mark.asyncio
-    async def test_callback_policy_no_callback_reraises(self):
-        policy = FallbackPolicy(on_connection_error="callback", fallback=None)
-        cache = AsyncCache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
-        with patch.object(self.client, "get", side_effect=RedisConnectionError("fail")):
-            with pytest.raises(RedisConnectionError):
-                await cache.get("k")
+    async def test_callback_policy_no_callback_raises_at_construction(self):
+        with pytest.raises(ValueError, match="fallback"):
+            FallbackPolicy(on_connection_error="callback", fallback=None)
