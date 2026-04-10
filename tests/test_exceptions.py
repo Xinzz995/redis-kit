@@ -112,3 +112,7 @@ class TestFallbackPolicy:
     def test_raise_without_fallback_is_valid(self):
         policy = FallbackPolicy(on_connection_error="raise")
         assert policy.on_connection_error == "raise"
+
+    def test_fallback_policy_non_callable_fallback_raises(self):
+        with pytest.raises(TypeError, match="callable"):
+            FallbackPolicy(on_connection_error="callback", fallback="not_a_function")

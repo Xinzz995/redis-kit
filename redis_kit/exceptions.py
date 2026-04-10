@@ -118,6 +118,8 @@ class FallbackPolicy:
     def __post_init__(self) -> None:
         if self.on_connection_error == "callback" and self.fallback is None:
             raise ValueError("FallbackPolicy with on_connection_error='callback' requires a non-None fallback callable")
+        if self.fallback is not None and not callable(self.fallback):
+            raise TypeError(f"fallback must be callable, got {type(self.fallback).__name__}")
 
 
 # --- Stream ---
