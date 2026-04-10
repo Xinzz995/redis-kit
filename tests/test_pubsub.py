@@ -426,6 +426,29 @@ class TestAsyncPubSub:
         assert ps._running is False
         mock_client.pubsub.return_value.aclose.assert_awaited_once()
 
+    async def test_async_handler_is_awaited(self, mock_client: MagicMock) -> None:
+        """AsyncPubSub.listen() should correctly await async handlers."""
+        received = []
+
+        async def async_handler(data):
+            received.append(data)
+
+        ps = AsyncPubSub(mock_client, prefix="app")
+        await ps.subscribe("async-ch", async_handler)
+
+        ps._pubsub.get_message.side_effect = _make_async_get_message_side_effect(
+            ps,
+            [
+                {
+                    "type": "message",
+                    "channel": b"app:async-ch",
+                    "data": json.dumps({"val": 42}).encode(),
+                },
+            ],
+        )
+        await ps.listen()
+        assert received == [{"val": 42}]
+
     async def test_listen_passes_timeout_to_get_message(self, mock_client: MagicMock) -> None:
         """listen(timeout=N) must pass timeout=N to get_message()."""
         ps = AsyncPubSub(mock_client, prefix="app")
