@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING
 
 from redis_kit.exceptions import StreamError
+
+if TYPE_CHECKING:
+    from redis_kit.stream.async_consumer import AsyncStreamConsumer
+    from redis_kit.stream.consumer import StreamConsumer
 
 
 @dataclass
@@ -13,7 +17,7 @@ class StreamMessage:
     id: str
     data: dict[str, str]
     stream: str
-    _consumer: Any = field(default=None, repr=False)
+    _consumer: StreamConsumer | AsyncStreamConsumer | None = field(default=None, repr=False)
 
     def ack(self) -> None:
         if self._consumer is None:
