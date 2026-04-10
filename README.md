@@ -11,13 +11,13 @@ Enterprise-grade Python Redis toolkit with sync/async dual-mode APIs.
 
 ## Features
 
-- **Cache** — Get/Set/Delete, TTL management, batch operations, SCAN-based iteration, `@cached` decorator with `.invalidate()`, BoundCache, TTL jitter (anti-avalanche), None caching (anti-penetration)
-- **Distributed Lock** — Basic lock, reentrant lock, read-write lock, watchdog auto-renewal, Lua-scripted atomic operations
-- **Queue** — PubSub, DelayQueue (Sorted Set), ReliableQueue (LMOVE + ack/nack)
+- **Cache** — Get/Set/Delete, TTL management, batch operations, SCAN-based iteration, `@cached` decorator with `.invalidate()`, BoundCache, TTL jitter (anti-avalanche), None caching (anti-penetration), FallbackPolicy degradation (raise/return_none/callback), full hook lifecycle (before/after/error)
+- **Distributed Lock** — Basic lock, reentrant lock, read-write lock, watchdog auto-renewal, Lua-scripted atomic operations, exception-safe context manager
+- **Queue** — PubSub (with graceful `stop()` and `listen(timeout=)`), DelayQueue (Sorted Set), ReliableQueue (LMOVE + ack/nack)
 - **Bloom Filter** — Double hashing (MD5-based), pipeline-based bit operations, configurable false positive rate, `reset()`
 - **Counter & ID Generator** — Atomic INCR/DECR, BoundCounter, zero-padded ID generation
 - **Session Manager** — Redis Hash per session, JSON serialization (type-preserving), CRUD, TTL refresh, custom ID generator
-- **Rate Limiter** — Token bucket (burst-tolerant) and sliding window (exact count), Lua-scripted, `@rate_limit` decorator
+- **Rate Limiter** — Token bucket (burst-tolerant) and sliding window (exact count), Lua-scripted with server-side `TIME`, `@rate_limit` decorator
 - **Tiered Cache** — L1 local LRU + L2 Redis, read-through backfill, negative caching, `bind()`, zero dependencies
 - **Redis Streams** — Consumer groups with auto/manual ACK, `async_ack()` for async consumers, dead letter recovery (XAUTOCLAIM)
 - **Repository** — Dataclass entity → Redis Hash, CRUD, optimistic locking, soft delete, audit fields, version history
@@ -111,6 +111,13 @@ with lock.read("resource"):
 
 with lock.write("resource"):
     update_shared_state()
+
+# Exception-safe: LockReleaseError never masks your original exception
+try:
+    with lock("resource", timeout=5):
+        raise ValueError("business error")
+except ValueError:
+    pass  # ValueError propagates even if lock release fails
 ```
 
 ### Queue
@@ -137,6 +144,20 @@ except Exception:
 # PubSub
 pubsub = PubSub(conn.sync_client, prefix="myapp")
 pubsub.publish("events", {"type": "user_created", "id": 1})
+
+def handler(msg):
+    print(msg)
+
+pubsub.subscribe("events", handler)
+pubsub.psubscribe("events.*", handler)  # Pattern subscription
+
+# Run in background thread with graceful shutdown
+import threading
+thread = threading.Thread(target=pubsub.listen, kwargs={"timeout": 1.0})
+thread.start()
+
+pubsub.stop()    # Signal listen() to exit
+thread.join()
 ```
 
 ### Bloom Filter
@@ -232,8 +253,8 @@ if not result.allowed:
 def get_user(user_id: int) -> dict:
     return db.query_user(user_id)
 
-# Async (auto-detected)
-@rate_limit(conn.sync_client, key="api:{uid}", limit="10/second", algorithm="token_bucket")
+# Async — pass async client for async functions
+@rate_limit(conn.async_client, key="api:{uid}", limit="10/second", algorithm="token_bucket")
 async def get_product(uid: int) -> dict:
     return await db.query_product(uid)
 ```
@@ -438,15 +459,21 @@ cache = Cache(
 ## Exception Handling
 
 ```python
-from redis_kit import RedisKitError, FallbackPolicy
+from redis_kit import RedisKitError, FallbackPolicy, Cache
 
-# Configurable degradation
-policy = FallbackPolicy(
-    on_connection_error="return_none",  # "raise" | "return_none" | "callback"
-    log_on_fallback=True,
-)
+# Strategy 1: Silent degradation — return None on connection failure
+policy = FallbackPolicy(on_connection_error="return_none")
+cache = Cache(conn.sync_client, fallback_policy=policy)
+
+# Strategy 2: Custom callback — fall back to local cache
+def local_fallback(command, key, error):
+    return local_cache.get(key) if command == "GET" else None
+
+policy = FallbackPolicy(on_connection_error="callback", fallback=local_fallback)
 cache = Cache(conn.sync_client, fallback_policy=policy)
 ```
+
+Only triggers for `RedisConnectionError` and `RedisTimeoutError`. Other exceptions always re-raise.
 
 Exception hierarchy:
 
