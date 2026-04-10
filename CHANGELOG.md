@@ -1,5 +1,60 @@
 # Changelog
 
+## [0.7.0] - 2026-04-10
+
+### Fixed (Critical)
+- **Lock**: Read/write lock now fully atomic via Lua scripts, fixing race condition in `write()` (C1)
+- **Lock**: Lua scripts declare all accessed keys in `KEYS[]` for Redis Cluster compliance (C2)
+- **Lock**: Watchdog timer chain properly tracked and cancelled on release (C4)
+- **Cache**: `remember()` now correctly caches `None` values from factory (C3)
+- **Repository**: Optimistic lock is now atomic check-and-write in single Lua script (C5)
+- **PubSub**: Pattern subscription (`psubscribe`) handler lookup fixed — uses `message["pattern"]` (C6)
+- **Stream**: Added `StreamMessage.async_ack()` for async consumer manual ACK (C7)
+- **Queue**: `ReliableQueue._nack()` is now atomic via Lua, preserves original msg_id (C8)
+- **Session**: `create()` uses pipeline for atomic hset+expire (C9)
+- **Connection**: `ClusterConfig.read_from_replicas` now passed to RedisCluster (C10)
+
+### Fixed (Important)
+- **Cache**: `apply_jitter` clamped to min=1, preventing TTL=0 errors
+- **Cache**: `@cached` decorator guards against TTL=0 with fallback to `SET`
+- **Cache**: `AsyncCache` now has full hook support (parity with sync `Cache`)
+- **Cache**: `delete_pattern` uses batch `DELETE` instead of per-key calls
+- **Cache**: `TieredCache.get_many()` applies negative caching for L2 misses
+- **Cache**: Unified `_MISS` sentinel across `_logic.py` and `local.py`
+- **Observability**: `MetricsCollector` is now thread-safe with bounded `deque`
+- **Observability**: `OpenTelemetryHook` creates spans in `before()`, ends in `after()`/`on_error()`
+- **Hooks**: `CompositeHook` isolates exceptions per hook (one failure doesn't block others)
+- **Connection**: `ssl` config now passed in `from_url` path
+- **Connection**: `assert isinstance` replaced with `raise TypeError` (survives `python -O`)
+- **Config**: `SentinelConfig.sentinels` / `ClusterConfig.startup_nodes` now immutable `tuple`
+- **Repository**: `_from_hash` uses `typing.get_type_hints()` for robust type resolution
+- **Repository**: Soft delete now bumps `version` and `updated_at`
+- **Queue**: `DelayQueue.put()` uses unique member IDs to prevent deduplication
+- **PubSub**: Per-message error isolation in `listen()` loop
+- **RateLimit**: `TokenBucketLimiter` validates `rate > 0` and `capacity > 0`
+- **Session**: `update()` uses pipeline to fix TOCTOU race, refreshes TTL
+- **Bloom**: Added `reset()` method
+- **Exports**: All 20 exceptions now exported from top-level `__init__.py`
+
+### Improved (Suggestions)
+- **Cache**: Removed dead `group_keys_by_slot` code from `_cluster.py`
+- **Cache**: `Cache.set()` hook now measures actual duration instead of hardcoded 0
+- **Cache**: `LRUCache.size` property is now thread-safe
+- **Cache**: `TieredCache` / `AsyncTieredCache` now support `bind()` method
+- **Cache**: `@cached` decorator supports `.invalidate()` for cache entry removal
+- **Bloom**: Switched from SHA-256 to double hashing (MD5-based, ~3.5x faster)
+- **Bloom**: `exists_many` uses single pipeline instead of N round trips
+- **Repository**: `find_all()` uses pipeline instead of N+1 queries
+- **Repository**: `restore()` on non-deleted entity now raises `RepositoryError` (not `EntityNotFoundError`)
+- **Session**: Values serialized with JSON (preserves types) instead of `str()`
+- **Counter**: `decr()` docstring documents that values can go below zero
+- **Queue**: `DelayQueue` Lua poll script extracted to shared `queue/_lua.py`
+- 13 new async tests (ratelimit, reliable queue ack/nack, stream pending)
+
+### Stats
+- 336 tests (up from 299), 0 failures
+- 42 files changed, +906 -143 lines
+
 ## [0.6.1] - 2026-04-10
 
 ### Improved
