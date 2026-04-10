@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Protocol, runtime_checkable
+
+_logger = logging.getLogger("redis_kit.hooks")
 
 
 @runtime_checkable
@@ -20,12 +23,21 @@ class CompositeHook:
 
     def before(self, command: str, key: str, args: tuple) -> None:
         for hook in self._hooks:
-            hook.before(command, key, args)
+            try:
+                hook.before(command, key, args)
+            except Exception:
+                _logger.exception("Hook before() failed for %s", type(hook).__name__)
 
     def after(self, command: str, key: str, result: Any, duration_ms: float) -> None:
         for hook in self._hooks:
-            hook.after(command, key, result, duration_ms)
+            try:
+                hook.after(command, key, result, duration_ms)
+            except Exception:
+                _logger.exception("Hook after() failed for %s", type(hook).__name__)
 
     def on_error(self, command: str, key: str, error: Exception) -> None:
         for hook in self._hooks:
-            hook.on_error(command, key, error)
+            try:
+                hook.on_error(command, key, error)
+            except Exception:
+                _logger.exception("Hook on_error() failed for %s", type(hook).__name__)

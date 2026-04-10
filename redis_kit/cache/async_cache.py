@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -80,11 +81,27 @@ class AsyncCache:
         seconds = parse_ttl(ttl)
         return apply_jitter(seconds, self._ttl_jitter)
 
+    def _notify_hooks(self, phase: str, command: str, key: str, **kwargs: Any) -> None:
+        for hook in self._hooks:
+            if phase == "before":
+                hook.before(command, key, kwargs.get("args", ()))
+            elif phase == "after":
+                hook.after(command, key, kwargs.get("result"), kwargs.get("duration_ms", 0))
+            elif phase == "error":
+                hook.on_error(command, key, kwargs.get("error", RuntimeError()))
+
     async def _get_raw(self, key: str) -> Any:
         """Internal get returning _MISS sentinel for cache miss."""
         full_key = self._make_key(key)
+        start = time.monotonic()
         raw = await self._client.get(full_key)
-        return self._pipeline.decode(raw)
+        duration = (time.monotonic() - start) * 1000
+        value = self._pipeline.decode(raw)
+        if value is _MISS:
+            self._notify_hooks("after", "GET", key, result=None, duration_ms=duration)
+        else:
+            self._notify_hooks("after", "GET", key, result=value, duration_ms=duration)
+        return value
 
     async def get(self, key: str) -> Any:
         value = await self._get_raw(key)
@@ -94,10 +111,13 @@ class AsyncCache:
         full_key = self._make_key(key)
         encoded = self._pipeline.encode(value)
         resolved_ttl = self._resolve_ttl(ttl)
+        start = time.monotonic()
         if resolved_ttl is not None and resolved_ttl > 0:
             await self._client.setex(full_key, resolved_ttl, encoded)
         else:
             await self._client.set(full_key, encoded)
+        duration = (time.monotonic() - start) * 1000
+        self._notify_hooks("after", "SET", key, result=None, duration_ms=duration)
 
     async def delete(self, key: str) -> None:
         await self._client.delete(self._make_key(key))
