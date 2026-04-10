@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
+
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from redis_kit.cache._logic import _MISS, DataPipeline, apply_jitter, parse_ttl
 from redis_kit.compressors.base import Compressor
@@ -16,6 +20,9 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     import redis.asyncio
+
+_FALLBACK_ERRORS = (RedisConnectionError, RedisTimeoutError)
+_logger = logging.getLogger("redis_kit.cache")
 
 
 class AsyncBoundCache:
@@ -90,17 +97,36 @@ class AsyncCache:
             elif phase == "error":
                 hook.on_error(command, key, kwargs.get("error", RuntimeError()))
 
+    def _handle_fallback(self, error: Exception, command: str, key: str, default: Any = None) -> Any:
+        """Apply FallbackPolicy after hooks.on_error() has been called."""
+        if not isinstance(error, _FALLBACK_ERRORS):
+            raise error
+        policy = self._fallback.on_connection_error
+        if policy == "raise":
+            raise error
+        if policy == "return_none":
+            if self._fallback.log_on_fallback:
+                self._fallback.logger.warning("Redis %s on key '%s' failed, returning None: %s", command, key, error)
+            return default
+        if policy == "callback":
+            if self._fallback.fallback is not None:
+                return self._fallback.fallback(command, key, error)
+            raise error
+        raise error  # pragma: no cover
+
     async def _get_raw(self, key: str) -> Any:
         """Internal get returning _MISS sentinel for cache miss."""
         full_key = self._make_key(key)
+        self._notify_hooks("before", "GET", key, args=())
         start = time.monotonic()
-        raw = await self._client.get(full_key)
+        try:
+            raw = await self._client.get(full_key)
+        except Exception as e:
+            self._notify_hooks("error", "GET", key, error=e)
+            return self._handle_fallback(e, "GET", key, default=_MISS)
         duration = (time.monotonic() - start) * 1000
         value = self._pipeline.decode(raw)
-        if value is _MISS:
-            self._notify_hooks("after", "GET", key, result=None, duration_ms=duration)
-        else:
-            self._notify_hooks("after", "GET", key, result=value, duration_ms=duration)
+        self._notify_hooks("after", "GET", key, result=value if value is not _MISS else None, duration_ms=duration)
         return value
 
     async def get(self, key: str) -> Any:
@@ -111,16 +137,27 @@ class AsyncCache:
         full_key = self._make_key(key)
         encoded = self._pipeline.encode(value)
         resolved_ttl = self._resolve_ttl(ttl)
+        self._notify_hooks("before", "SET", key, args=(value, ttl))
         start = time.monotonic()
-        if resolved_ttl is not None and resolved_ttl > 0:
-            await self._client.setex(full_key, resolved_ttl, encoded)
-        else:
-            await self._client.set(full_key, encoded)
+        try:
+            if resolved_ttl is not None and resolved_ttl > 0:
+                await self._client.setex(full_key, resolved_ttl, encoded)
+            else:
+                await self._client.set(full_key, encoded)
+        except Exception as e:
+            self._notify_hooks("error", "SET", key, error=e)
+            self._handle_fallback(e, "SET", key)
+            return
         duration = (time.monotonic() - start) * 1000
         self._notify_hooks("after", "SET", key, result=None, duration_ms=duration)
 
     async def delete(self, key: str) -> None:
-        await self._client.delete(self._make_key(key))
+        self._notify_hooks("before", "DELETE", key, args=())
+        try:
+            await self._client.delete(self._make_key(key))
+        except Exception as e:
+            self._notify_hooks("error", "DELETE", key, error=e)
+            raise
 
     async def ttl(self, key: str) -> int:
         return await self._client.ttl(self._make_key(key))
@@ -155,50 +192,76 @@ class AsyncCache:
 
     async def get_many(self, keys: list[str]) -> dict[str, Any]:
         full_keys = [self._make_key(k) for k in keys]
-        if self._is_cluster:
-            raw_values = [await self._client.get(k) for k in full_keys]
-        else:
-            raw_values = await self._client.mget(full_keys)
+        keys_str = ",".join(keys)
+        self._notify_hooks("before", "GET_MANY", keys_str, args=(keys,))
+        start = time.monotonic()
+        try:
+            if self._is_cluster:
+                raw_values = [await self._client.get(k) for k in full_keys]
+            else:
+                raw_values = await self._client.mget(full_keys)
+        except Exception as e:
+            self._notify_hooks("error", "GET_MANY", keys_str, error=e)
+            raise
+        duration = (time.monotonic() - start) * 1000
         result = {}
         for key, raw in zip(keys, raw_values):
             val = self._pipeline.decode(raw)
             result[key] = val if val is not _MISS else None
+        self._notify_hooks("after", "GET_MANY", keys_str, result=result, duration_ms=duration)
         return result
 
     async def set_many(self, mapping: dict[str, Any], ttl: str | int | None = None) -> None:
         resolved_ttl = self._resolve_ttl(ttl)
-        if self._is_cluster:
-            for key, value in mapping.items():
-                full_key = self._make_key(key)
-                encoded = self._pipeline.encode(value)
-                if resolved_ttl is not None and resolved_ttl > 0:
-                    await self._client.setex(full_key, resolved_ttl, encoded)
-                else:
-                    await self._client.set(full_key, encoded)
-        else:
-            pipe = self._client.pipeline(transaction=False)
-            for key, value in mapping.items():
-                full_key = self._make_key(key)
-                encoded = self._pipeline.encode(value)
-                if resolved_ttl is not None and resolved_ttl > 0:
-                    pipe.setex(full_key, resolved_ttl, encoded)
-                else:
-                    pipe.set(full_key, encoded)
-            await pipe.execute()
+        keys_str = ",".join(mapping.keys())
+        self._notify_hooks("before", "SET_MANY", keys_str, args=(mapping, ttl))
+        start = time.monotonic()
+        try:
+            if self._is_cluster:
+                for key, value in mapping.items():
+                    full_key = self._make_key(key)
+                    encoded = self._pipeline.encode(value)
+                    if resolved_ttl is not None and resolved_ttl > 0:
+                        await self._client.setex(full_key, resolved_ttl, encoded)
+                    else:
+                        await self._client.set(full_key, encoded)
+            else:
+                pipe = self._client.pipeline(transaction=False)
+                for key, value in mapping.items():
+                    full_key = self._make_key(key)
+                    encoded = self._pipeline.encode(value)
+                    if resolved_ttl is not None and resolved_ttl > 0:
+                        pipe.setex(full_key, resolved_ttl, encoded)
+                    else:
+                        pipe.set(full_key, encoded)
+                await pipe.execute()
+        except Exception as e:
+            self._notify_hooks("error", "SET_MANY", keys_str, error=e)
+            raise
+        duration = (time.monotonic() - start) * 1000
+        self._notify_hooks("after", "SET_MANY", keys_str, result=None, duration_ms=duration)
 
     async def delete_pattern(self, pattern: str, batch_size: int = 100) -> int:
         full_pattern = self._make_key(pattern)
-        count = 0
-        batch: list[bytes | str] = []
-        async for key in self._client.scan_iter(match=full_pattern, count=batch_size):
-            batch.append(key)
-            if len(batch) >= batch_size:
+        self._notify_hooks("before", "DELETE_PATTERN", pattern, args=(pattern,))
+        start = time.monotonic()
+        try:
+            count = 0
+            batch: list[bytes | str] = []
+            async for key in self._client.scan_iter(match=full_pattern, count=batch_size):
+                batch.append(key)
+                if len(batch) >= batch_size:
+                    await self._client.delete(*batch)
+                    count += len(batch)
+                    batch = []
+            if batch:
                 await self._client.delete(*batch)
                 count += len(batch)
-                batch = []
-        if batch:
-            await self._client.delete(*batch)
-            count += len(batch)
+        except Exception as e:
+            self._notify_hooks("error", "DELETE_PATTERN", pattern, error=e)
+            raise
+        duration = (time.monotonic() - start) * 1000
+        self._notify_hooks("after", "DELETE_PATTERN", pattern, result=count, duration_ms=duration)
         return count
 
     async def iter_keys(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:
