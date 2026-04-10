@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import redis.asyncio
+
+_logger = logging.getLogger("redis_kit")
 
 
 class AsyncPubSub:
@@ -54,7 +57,7 @@ class AsyncPubSub:
                         data = json.loads(message["data"])
                         handler(data)
                 except Exception:
-                    pass
+                    _logger.exception("Error in PubSub listener")
 
     async def close(self) -> None:
         await self._pubsub.aclose()

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -83,6 +83,22 @@ class TestPubSub:
 
         bad_handler.assert_called_once_with({"x": 1})
         good_handler.assert_called_once_with({"x": 2})
+
+    def test_listen_error_logs_exception(self, mock_client: MagicMock) -> None:
+        """Handler errors must be logged via _logger.exception."""
+        ps = PubSub(mock_client, prefix="app")
+        ps.subscribe("ch", MagicMock(side_effect=RuntimeError("boom")))
+
+        ps._pubsub.listen.return_value = [
+            {
+                "type": "message",
+                "channel": b"app:ch",
+                "data": json.dumps({"x": 1}).encode(),
+            },
+        ]
+        with patch("redis_kit.queue.pubsub._logger") as mock_logger:
+            ps.listen()
+            mock_logger.exception.assert_called_once_with("Error in PubSub listener")
 
     def test_listen_invalid_json_isolation(self, mock_client: MagicMock) -> None:
         """Invalid JSON in one message must not kill the loop."""
@@ -247,6 +263,23 @@ class TestAsyncPubSub:
 
         bad_handler.assert_called_once_with({"x": 1})
         good_handler.assert_called_once_with({"x": 2})
+
+    async def test_listen_error_logs_exception(self, mock_client: MagicMock) -> None:
+        """Handler errors must be logged via _logger.exception."""
+        ps = AsyncPubSub(mock_client, prefix="app")
+        await ps.subscribe("ch", MagicMock(side_effect=RuntimeError("boom")))
+
+        async def _messages():
+            yield {
+                "type": "message",
+                "channel": b"app:ch",
+                "data": json.dumps({"x": 1}).encode(),
+            }
+
+        ps._pubsub.listen.return_value = _messages()
+        with patch("redis_kit.queue.async_pubsub._logger") as mock_logger:
+            await ps.listen()
+            mock_logger.exception.assert_called_once_with("Error in PubSub listener")
 
     async def test_publish(self, mock_client: MagicMock) -> None:
         ps = AsyncPubSub(mock_client, prefix="app")

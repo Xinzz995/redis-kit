@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import redis
+
+_logger = logging.getLogger("redis_kit")
 
 
 class PubSub:
@@ -54,7 +57,7 @@ class PubSub:
                         data = json.loads(message["data"])
                         handler(data)
                 except Exception:
-                    pass
+                    _logger.exception("Error in PubSub listener")
 
     def close(self) -> None:
         self._pubsub.close()
