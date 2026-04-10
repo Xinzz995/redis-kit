@@ -25,7 +25,7 @@ cache.persist("key")      # Remove expiration
 cache.expire("key", 600)  # Reset TTL
 ```
 
-支持字符串格式的 TTL：`"2h30m"`、`"1d"`、`"30s"`。
+支持字符串格式的 TTL：`"2h30m"`、`"1d"`、`"30s"`。负值会抛出 `ValueError`。
 
 ## Cache-Aside 模式
 
@@ -132,7 +132,7 @@ cache = Cache(conn.sync_client, prefix="myapp", fallback_policy=policy)
 
 ## Hooks（可观测性）
 
-Cache 的所有操作（get、set、delete、get_many、set_many、delete_pattern）都支持 Hook 生命周期：`before` → `after`（成功时）/ `error`（失败时）。
+Cache 的所有操作（get、set、delete、get_many、set_many、delete_pattern）都支持 Hook 生命周期：`before` → `after`（成功时）/ `error`（失败时）。单个 Hook 异常不会中断缓存操作，仅记录错误日志。
 
 ```python
 from redis_kit import Cache

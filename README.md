@@ -112,12 +112,18 @@ with lock.read("resource"):
 with lock.write("resource"):
     update_shared_state()
 
-# Exception-safe: LockReleaseError never masks your original exception
+# Exception-safe: all context managers (lock, read, write) never mask your exception
 try:
     with lock("resource", timeout=5):
         raise ValueError("business error")
 except ValueError:
     pass  # ValueError propagates even if lock release fails
+
+try:
+    with lock.write("resource", timeout=5):
+        raise ValueError("write error")
+except ValueError:
+    pass  # Same guarantee for read-write locks
 ```
 
 ### Queue
@@ -361,11 +367,11 @@ repo.save(updated)        # OK (version 2→3)
 stale.value = "20"
 repo.save(stale)           # OptimisticLockError!
 
-# Soft delete + restore
-repo.delete(config.id)              # Marks deleted=True
+# Soft delete + restore (both use optimistic locking, auto version increment)
+repo.delete(config.id)              # deleted=True, version+1
 repo.find(config.id)                # None
 repo.find_including_deleted(config.id)  # Still accessible
-repo.restore(config.id)             # Recovered
+repo.restore(config.id)             # Recovered, version+1
 
 # Version history
 history = repo.get_history(config.id)  # [v2, v1] — all previous versions

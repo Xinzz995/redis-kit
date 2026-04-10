@@ -52,12 +52,14 @@ repo.save(stale)                  # OptimisticLockError! (expected 2, actual 3)
 ## 软删除
 
 ```python
-repo.delete(config.id)                       # deleted=True, deleted_at set
+repo.delete(config.id)                       # deleted=True, version+1
 repo.find(config.id)                         # None
 repo.find_including_deleted(config.id)       # Still accessible
-repo.restore(config.id)                      # Recovered
+restored = repo.restore(config.id)           # Recovered, version+1
 repo.hard_delete(config.id)                  # Permanently removed
 ```
+
+`delete()` 和 `restore()` 都使用乐观锁保证原子性，并自动递增 `version`、更新 `updated_at`。
 
 ## 版本历史
 

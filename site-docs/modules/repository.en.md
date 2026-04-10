@@ -52,12 +52,14 @@ repo.save(stale)                  # OptimisticLockError! (expected 2, actual 3)
 ## Soft Delete
 
 ```python
-repo.delete(config.id)                       # deleted=True, deleted_at set
+repo.delete(config.id)                       # deleted=True, version+1
 repo.find(config.id)                         # None
 repo.find_including_deleted(config.id)       # Still accessible
-repo.restore(config.id)                      # Recovered
+restored = repo.restore(config.id)           # Recovered, version+1
 repo.hard_delete(config.id)                  # Permanently removed
 ```
+
+Both `delete()` and `restore()` use optimistic locking for atomicity, automatically incrementing `version` and updating `updated_at`.
 
 ## Version History
 

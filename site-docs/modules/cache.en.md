@@ -25,7 +25,7 @@ cache.persist("key")      # Remove expiration
 cache.expire("key", 600)  # Reset TTL
 ```
 
-Supports string-format TTL: `"2h30m"`, `"1d"`, `"30s"`.
+Supports string-format TTL: `"2h30m"`, `"1d"`, `"30s"`. Negative values raise `ValueError`.
 
 ## Cache-Aside Pattern
 
@@ -132,7 +132,7 @@ See [Exception Handling - Fallback Policy](../configuration/exceptions.md#fallba
 
 ## Hooks (Observability)
 
-All Cache operations (get, set, delete, get_many, set_many, delete_pattern) support the full hook lifecycle: `before` → `after` (on success) / `error` (on failure).
+All Cache operations (get, set, delete, get_many, set_many, delete_pattern) support the full hook lifecycle: `before` → `after` (on success) / `error` (on failure). A failing hook will not break the cache operation — errors are logged instead.
 
 ```python
 from redis_kit import Cache

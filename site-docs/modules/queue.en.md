@@ -39,6 +39,22 @@ thread.join()
 pubsub.close()
 ```
 
+### Async Handlers
+
+`AsyncPubSub` supports both sync and async handlers. Async handlers are automatically awaited:
+
+```python
+from redis_kit import AsyncPubSub
+
+async_pubsub = AsyncPubSub(conn.async_client, prefix="myapp")
+
+async def async_handler(message):
+    await save_to_db(message)
+
+await async_pubsub.subscribe("events", async_handler)
+await async_pubsub.listen(timeout=1.0)
+```
+
 ### Pattern Subscription
 
 ```python

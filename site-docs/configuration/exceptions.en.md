@@ -66,3 +66,6 @@ cache = Cache(conn.sync_client, prefix="myapp", fallback_policy=policy)
 
 !!! note "Only triggers for connection errors"
     FallbackPolicy only activates for `RedisConnectionError` and `RedisTimeoutError`. Other exceptions (e.g., serialization errors) are always re-raised.
+
+!!! warning "callback mode requires a fallback"
+    When using `on_connection_error="callback"`, you must provide a `fallback` callable. Omitting it raises `ValueError` at construction time.

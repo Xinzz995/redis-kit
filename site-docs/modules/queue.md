@@ -39,6 +39,22 @@ thread.join()
 pubsub.close()
 ```
 
+### 异步处理器
+
+`AsyncPubSub` 同时支持同步和异步处理器，异步处理器会自动被 `await`：
+
+```python
+from redis_kit import AsyncPubSub
+
+async_pubsub = AsyncPubSub(conn.async_client, prefix="myapp")
+
+async def async_handler(message):
+    await save_to_db(message)
+
+await async_pubsub.subscribe("events", async_handler)
+await async_pubsub.listen(timeout=1.0)
+```
+
 ### 模式订阅
 
 ```python

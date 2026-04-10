@@ -66,3 +66,6 @@ cache = Cache(conn.sync_client, prefix="myapp", fallback_policy=policy)
 
 !!! note "仅对连接类异常生效"
     FallbackPolicy 仅在 `RedisConnectionError` 和 `RedisTimeoutError` 时触发。其他异常（如序列化错误）始终直接抛出。
+
+!!! warning "callback 模式必须提供 fallback"
+    使用 `on_connection_error="callback"` 时，必须同时提供 `fallback` 回调函数，否则构造时会抛出 `ValueError`。

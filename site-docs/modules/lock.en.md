@@ -47,7 +47,7 @@ lock = Lock(conn.sync_client, prefix="myapp:lock", is_cluster=conn.is_cluster)
 
 ## Exception Safety
 
-The lock context manager guarantees it will never mask your original exception. If the lock release fails (e.g., lock TTL expired) while your code also raised an exception, the original exception propagates normally, and the release failure is logged as a warning.
+All lock context managers (`__call__`, `read()`, `write()`) guarantee they will never mask your original exception. If the lock release fails (e.g., lock TTL expired) while your code also raised an exception, the original exception propagates normally, and the release failure is logged as a warning.
 
 ```python
 try:
@@ -56,9 +56,19 @@ try:
 except ValueError:
     # ValueError propagates normally, even if lock release fails
     pass
+
+# Read-write locks are also exception-safe
+try:
+    with lock.write("resource", timeout=5):
+        raise ValueError("write operation error")
+except ValueError:
+    pass  # Original exception propagates normally
 ```
 
 On clean exit (no exception), a failed release will raise `LockReleaseError` as expected.
+
+!!! note "Reader-preference policy"
+    The read-write lock uses a reader-preference strategy. Under high contention, continuous readers may starve writers. Keep this in mind for write-heavy workloads.
 
 ## Async Usage
 

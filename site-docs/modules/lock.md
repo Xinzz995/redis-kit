@@ -47,7 +47,7 @@ lock = Lock(conn.sync_client, prefix="myapp:lock", is_cluster=conn.is_cluster)
 
 ## 异常安全
 
-锁的上下文管理器保证不会遮蔽你代码中抛出的原始异常。如果锁释放失败（例如锁已超时过期），而你的代码同时抛出了异常，原始异常将正常传播，释放失败仅记录警告日志。
+所有锁的上下文管理器（`__call__`、`read()`、`write()`）都保证不会遮蔽你代码中抛出的原始异常。如果锁释放失败（例如锁已超时过期），而你的代码同时抛出了异常，原始异常将正常传播，释放失败仅记录警告日志。
 
 ```python
 try:
@@ -56,9 +56,19 @@ try:
 except ValueError:
     # ValueError 会正常传播，即使锁释放失败也不会被 LockReleaseError 遮蔽
     pass
+
+# 读写锁同样异常安全
+try:
+    with lock.write("resource", timeout=5):
+        raise ValueError("写操作异常")
+except ValueError:
+    pass  # 原始异常正常传播
 ```
 
 在正常退出（无异常）时，如果锁释放失败则会抛出 `LockReleaseError`。
+
+!!! note "读写锁为读者优先策略"
+    在高竞争场景下，持续的读操作可能导致写操作饥饿。如果你的场景写操作较频繁，请注意这一设计特性。
 
 ## 异步用法
 
