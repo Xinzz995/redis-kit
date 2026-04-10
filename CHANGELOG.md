@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.7.2] - 2026-04-11
+
+### Fixed
+- **Cache**: `parse_ttl()` now rejects negative TTL values with `ValueError` — previously silently created permanent keys
+- **Cache**: `_notify_hooks()` wraps each hook call in `try/except` — a misbehaving hook no longer breaks cache operations (matches `CompositeHook` pattern)
+- **Cache**: `TieredCache.get_many()` now correctly distinguishes cached `None` from cache miss — previously wrote `_NEGATIVE` to L1 for cached `None` values
+- **Cache**: `AsyncTieredCache` gained `iter_keys()` method — restores sync/async API parity
+- **Connection**: `ConnectionManager.close()` now acquires `_sync_lock` — fixes race condition with concurrent `sync_client` access
+- **Exceptions**: `FallbackPolicy(on_connection_error="callback")` now validates that `fallback` is not `None` at construction time
+- **Lock**: `read()` and `write()` context managers switched from `try/finally` to `except/else` — release failures no longer mask the original exception (matches `__call__` behavior)
+- **PubSub**: `AsyncPubSub.listen()` now detects and `await`s async handlers — previously silently discarded unawaited coroutines
+- **Queue**: `DelayQueue.put()` and `poll()` now use Redis server-side `TIME` via Lua scripts — eliminates distributed clock drift (matches RateLimit approach)
+- **Repository**: `restore()` now uses optimistic locking, increments `version`, and updates `updated_at` — previously skipped version check and broke the mutation invariant
+
+### Removed
+- Dead file `redis_kit/cache/_cluster.py` (empty, never imported)
+- Dead function `resolve_callable()` in `redis_kit/cache/_logic.py` (never used)
+- Dead code branch in `Repository._from_hash()` datetime handling (`raw != "__NONE__"` always true)
+
+### Stats
+- 430 tests (up from 414), 0 failures
+- 24 files changed, +400 -68 lines
+
 ## [0.7.1] - 2026-04-11
 
 ### Fixed (Critical)
