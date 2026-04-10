@@ -90,12 +90,15 @@ class AsyncCache:
 
     def _notify_hooks(self, phase: str, command: str, key: str, **kwargs: Any) -> None:
         for hook in self._hooks:
-            if phase == "before":
-                hook.before(command, key, kwargs.get("args", ()))
-            elif phase == "after":
-                hook.after(command, key, kwargs.get("result"), kwargs.get("duration_ms", 0))
-            elif phase == "error":
-                hook.on_error(command, key, kwargs.get("error", RuntimeError()))
+            try:
+                if phase == "before":
+                    hook.before(command, key, kwargs.get("args", ()))
+                elif phase == "after":
+                    hook.after(command, key, kwargs.get("result"), kwargs.get("duration_ms", 0))
+                elif phase == "error":
+                    hook.on_error(command, key, kwargs.get("error", RuntimeError()))
+            except Exception:
+                _logger.exception("Hook %s() failed for %s", phase, type(hook).__name__)
 
     def _handle_fallback(self, error: Exception, command: str, key: str, default: Any = None) -> Any:
         """Apply FallbackPolicy after hooks.on_error() has been called."""

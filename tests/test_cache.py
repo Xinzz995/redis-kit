@@ -191,6 +191,24 @@ class TestCache:
         keys = list(cache.iter_keys("user:*"))
         assert sorted(keys) == ["user:1", "user:2"]
 
+    def test_hook_exception_does_not_break_cache_operation(self):
+        """A misbehaving hook should not break cache get/set."""
+
+        class BrokenHook:
+            def before(self, command, key, args):
+                raise RuntimeError("hook exploded")
+
+            def after(self, command, key, result, duration_ms):
+                raise RuntimeError("hook exploded")
+
+            def on_error(self, command, key, error):
+                raise RuntimeError("hook exploded")
+
+        cache = self._make_cache(hooks=[BrokenHook()])
+        cache.set("key1", "value1", ttl=60)
+        result = cache.get("key1")
+        assert result == "value1"
+
 
 class TestAsyncCache:
     @pytest.fixture(autouse=True)
