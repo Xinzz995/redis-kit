@@ -197,6 +197,23 @@ class TestReadWriteLock:
                     pass
 
 
+    def test_write_lock_release_failure_does_not_mask_user_exception(self):
+        """If user code raises inside write() and release fails, original exception propagates."""
+        lock = Lock(self.client, prefix="test:lock")
+        with pytest.raises(ValueError, match="user error"):
+            with lock.write("rw-mask-test", timeout=1):
+                # Expire the writer key to simulate release failure
+                self.client.delete(lock._make_key("rw-mask-test") + ":rwlock:writer")
+                raise ValueError("user error")
+
+    def test_read_lock_release_failure_does_not_mask_user_exception(self):
+        """If user code raises inside read() and release fails, original exception propagates."""
+        lock = Lock(self.client, prefix="test:lock")
+        with pytest.raises(ValueError, match="user error"):
+            with lock.read("rw-mask-test", timeout=1):
+                raise ValueError("user error")
+
+
 class TestAsyncReadWriteLock:
     @pytest.fixture(autouse=True)
     def setup(self):

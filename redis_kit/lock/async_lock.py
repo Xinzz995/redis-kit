@@ -150,7 +150,13 @@ class AsyncLock:
             raise LockAcquireError(f"Failed to acquire read lock '{name}': writer active")
         try:
             yield
-        finally:
+        except BaseException:
+            try:
+                await self._read_release_script(keys=[key], args=[])
+            except LockReleaseError:
+                _logger.warning("Failed to release read lock '%s' while handling another exception", name)
+            raise
+        else:
             await self._read_release_script(keys=[key], args=[])
 
     @asynccontextmanager
@@ -172,5 +178,11 @@ class AsyncLock:
 
         try:
             yield
-        finally:
+        except BaseException:
+            try:
+                await self._write_release_script(keys=[writer_key], args=[owner])
+            except LockReleaseError:
+                _logger.warning("Failed to release write lock '%s' while handling another exception", name)
+            raise
+        else:
             await self._write_release_script(keys=[writer_key], args=[owner])
