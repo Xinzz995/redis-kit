@@ -1,8 +1,10 @@
 import fakeredis
+import fakeredis.aioredis
 import pytest
 
 from redis_kit.exceptions import RateLimitExceeded, RedisKitError
 from redis_kit.ratelimit._result import RateLimitResult
+from redis_kit.ratelimit.async_token_bucket import AsyncTokenBucketLimiter
 from redis_kit.ratelimit.token_bucket import TokenBucketLimiter
 
 
@@ -95,3 +97,45 @@ class TestTokenBucketLimiter:
         keys = [k.decode() for k in self.client.keys(b"*")]
         for k in keys:
             assert "{" in k and "}" in k
+
+
+class TestAsyncTokenBucketLimiter:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        yield
+
+    @pytest.mark.asyncio
+    async def test_acquire_allowed(self):
+        limiter = AsyncTokenBucketLimiter(self.client, rate=10.0, capacity=5)
+        result = await limiter.acquire("user1")
+        assert result.allowed is True
+        assert result.remaining >= 0
+
+    @pytest.mark.asyncio
+    async def test_acquire_exhausted(self):
+        limiter = AsyncTokenBucketLimiter(self.client, rate=1, capacity=3)
+        for _ in range(3):
+            result = await limiter.acquire("user2")
+            assert result.allowed is True
+        result = await limiter.acquire("user2")
+        assert result.allowed is False
+
+    @pytest.mark.asyncio
+    async def test_reset(self):
+        limiter = AsyncTokenBucketLimiter(self.client, rate=1, capacity=1)
+        await limiter.acquire("user3")
+        await limiter.acquire("user3")  # exhausted
+        await limiter.reset("user3")
+        result = await limiter.acquire("user3")
+        assert result.allowed is True
+
+    @pytest.mark.asyncio
+    async def test_rate_validation(self):
+        with pytest.raises(ValueError):
+            AsyncTokenBucketLimiter(self.client, rate=0)
+
+    @pytest.mark.asyncio
+    async def test_capacity_validation(self):
+        with pytest.raises(ValueError):
+            AsyncTokenBucketLimiter(self.client, capacity=0)

@@ -1,5 +1,8 @@
 import fakeredis
+import fakeredis.aioredis
+import pytest
 
+from redis_kit.ratelimit.async_sliding_window import AsyncSlidingWindowLimiter
 from redis_kit.ratelimit.sliding_window import SlidingWindowLimiter
 
 
@@ -56,3 +59,44 @@ class TestSlidingWindowLimiter:
         limiter = SlidingWindowLimiter(self.client, limit=1, window=60)
         result = limiter.acquire("user:1")
         assert result.reset_at > 0
+
+
+class TestAsyncSlidingWindowLimiter:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        yield
+
+    @pytest.mark.asyncio
+    async def test_acquire_allowed(self):
+        limiter = AsyncSlidingWindowLimiter(self.client, limit=5, window=60)
+        result = await limiter.acquire("user1")
+        assert result.allowed is True
+
+    @pytest.mark.asyncio
+    async def test_acquire_exhausted(self):
+        limiter = AsyncSlidingWindowLimiter(self.client, limit=3, window=60)
+        for _ in range(3):
+            result = await limiter.acquire("user2")
+            assert result.allowed is True
+        result = await limiter.acquire("user2")
+        assert result.allowed is False
+
+    @pytest.mark.asyncio
+    async def test_reset(self):
+        limiter = AsyncSlidingWindowLimiter(self.client, limit=1, window=60)
+        await limiter.acquire("user3")
+        await limiter.acquire("user3")  # blocked
+        await limiter.reset("user3")
+        result = await limiter.acquire("user3")
+        assert result.allowed is True
+
+    @pytest.mark.asyncio
+    async def test_remaining_decrements(self):
+        limiter = AsyncSlidingWindowLimiter(self.client, limit=5, window=60)
+        results = [await limiter.acquire("user4") for _ in range(5)]
+        assert results[0].remaining == 4
+        assert results[1].remaining == 3
+        assert results[2].remaining == 2
+        assert results[3].remaining == 1
+        assert results[4].remaining == 0

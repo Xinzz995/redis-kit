@@ -1,3 +1,4 @@
+import time
 from unittest.mock import AsyncMock
 
 import fakeredis
@@ -186,3 +187,45 @@ class TestAsyncStreamConsumer:
         async for msg in c.listen(count=10, block=0):
             messages.append(msg)
         assert len(messages) == 2
+
+
+class TestStreamConsumerPending:
+    def setup_method(self):
+        self.client = fakeredis.FakeRedis(decode_responses=False)
+
+    def teardown_method(self):
+        self.client.flushall()
+        self.client.close()
+
+    def test_pending_returns_entries(self):
+        p = StreamProducer(self.client, stream="test_pending")
+        c = StreamConsumer(self.client, stream="test_pending", group="grp", consumer_name="c1", auto_ack=False)
+        c.ensure_group()
+
+        p.add({"key": "val1"})
+        p.add({"key": "val2"})
+
+        msgs = list(c.listen(count=10, block=0))
+        assert len(msgs) == 2
+
+        # fakeredis xpending IDLE filter uses strict '<' on millisecond timestamps,
+        # so we need a small delay to ensure idle time > 0ms.
+        time.sleep(0.01)
+
+        pending = c.pending(count=10)
+        assert len(pending) == 2
+        assert all(entry["consumer"] == "c1" for entry in pending)
+
+    @pytest.mark.skip(reason="fakeredis does not support XAUTOCLAIM")
+    def test_claim_stale_transfers_messages(self):
+        p = StreamProducer(self.client, stream="test_claim")
+        c1 = StreamConsumer(self.client, stream="test_claim", group="grp", consumer_name="c1", auto_ack=False)
+        c2 = StreamConsumer(self.client, stream="test_claim", group="grp", consumer_name="c2", auto_ack=False)
+        c1.ensure_group()
+
+        p.add({"key": "val"})
+        msgs = list(c1.listen(count=10, block=0))
+        assert len(msgs) == 1
+
+        claimed = c2.claim_stale(min_idle_ms=0, count=10)
+        assert len(claimed) >= 1

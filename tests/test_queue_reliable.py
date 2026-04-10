@@ -77,3 +77,22 @@ class TestAsyncReliableQueue:
         await rq.put({"a": 1})
         assert await rq.size() == 1
         assert await rq.processing_count() == 0
+
+    @pytest.mark.asyncio
+    async def test_ack(self):
+        rq = AsyncReliableQueue(self.client, "tasks")
+        await rq.put("ack_data")
+        msg = await rq.get()
+        assert await rq.processing_count() == 1
+        await msg.ack()
+        assert await rq.processing_count() == 0
+
+    @pytest.mark.asyncio
+    async def test_nack_requeues(self):
+        rq = AsyncReliableQueue(self.client, "tasks")
+        await rq.put("nack_data")
+        msg = await rq.get()
+        assert await rq.size() == 0
+        await msg.nack()
+        assert await rq.size() == 1
+        assert await rq.processing_count() == 0
