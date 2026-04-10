@@ -681,6 +681,111 @@ class TestDeleteOptimisticLock:
         assert found.version == 2
 
 
+# ============================================================
+# Task 9: restore() must use optimistic locking
+# ============================================================
+
+
+class TestRestoreOptimisticLock:
+    """restore() must increment version, update updated_at, and check optimistic lock."""
+
+    def setup_method(self):
+        self.client = fakeredis.FakeRedis(decode_responses=False)
+
+    def teardown_method(self):
+        self.client.flushall()
+        self.client.close()
+
+    def _make_repo(self):
+        return Repository(self.client, SampleEntity, prefix="test")
+
+    def test_restore_increments_version(self):
+        """restore() should increment version and update updated_at."""
+        repo = self._make_repo()
+        entity = repo.save(SampleEntity(name="key", value="val"))
+        repo.delete(entity.id)
+        deleted = repo.find_including_deleted(entity.id)
+        assert deleted.version == 2
+        assert deleted.deleted is True
+
+        restored = repo.restore(entity.id)
+        assert restored.version == 3
+        assert restored.updated_at is not None
+        assert not restored.deleted
+        assert restored.deleted_at is None
+
+    def test_restore_uses_optimistic_locking(self):
+        """restore() should fail on version conflict."""
+        from unittest.mock import patch
+
+        repo = self._make_repo()
+        entity = repo.save(SampleEntity(name="key", value="val"))
+        repo.delete(entity.id)
+        # Simulate: hgetall returns stale version while Redis has been concurrently updated
+        original_hgetall = self.client.hgetall
+
+        def patched_hgetall(k):
+            result = original_hgetall(k)
+            if result:
+                # Return stale data with version 1, but real Redis has version 2
+                result[b"version"] = b"1"
+            return result
+
+        with patch.object(self.client, "hgetall", side_effect=patched_hgetall):
+            with pytest.raises(OptimisticLockError):
+                repo.restore(entity.id)
+
+
+class TestAsyncRestoreOptimisticLock:
+    """Async: restore() must increment version, update updated_at, and check optimistic lock."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        yield
+
+    def _make_repo(self):
+        return AsyncRepository(self.client, SampleEntity, prefix="test")
+
+    @pytest.mark.asyncio
+    async def test_restore_increments_version(self):
+        """restore() should increment version and update updated_at."""
+        repo = self._make_repo()
+        entity = await repo.save(SampleEntity(name="key", value="val"))
+        await repo.delete(entity.id)
+        deleted = await repo.find_including_deleted(entity.id)
+        assert deleted.version == 2
+        assert deleted.deleted is True
+
+        restored = await repo.restore(entity.id)
+        assert restored.version == 3
+        assert restored.updated_at is not None
+        assert not restored.deleted
+        assert restored.deleted_at is None
+
+    @pytest.mark.asyncio
+    async def test_restore_uses_optimistic_locking(self):
+        """restore() should fail on version conflict."""
+        from unittest.mock import patch
+
+        repo = self._make_repo()
+        entity = await repo.save(SampleEntity(name="key", value="val"))
+        await repo.delete(entity.id)
+        # Simulate: hgetall returns stale version while Redis has been concurrently updated
+        original_hgetall = self.client.hgetall
+
+        async def patched_hgetall(k):
+            result = await original_hgetall(k)
+            if result:
+                # Return stale data with version 1, but real Redis has version 2
+                result[b"version"] = b"1"
+            return result
+
+        with patch.object(self.client, "hgetall", side_effect=patched_hgetall):
+            with pytest.raises(OptimisticLockError):
+                await repo.restore(entity.id)
+
+
 class TestAsyncDeleteOptimisticLock:
     """I-9 async variant."""
 
