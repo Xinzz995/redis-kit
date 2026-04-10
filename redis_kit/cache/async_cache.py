@@ -197,23 +197,16 @@ class AsyncCache:
         return value
 
     async def get_many(self, keys: list[str]) -> dict[str, Any]:
-        full_keys = [self._make_key(k) for k in keys]
         keys_str = ",".join(keys)
         self._notify_hooks("before", "GET_MANY", keys_str, args=(keys,))
         start = time.monotonic()
         try:
-            if self._is_cluster:
-                raw_values = [await self._client.get(k) for k in full_keys]
-            else:
-                raw_values = await self._client.mget(full_keys)
+            raw_result = await self._get_many_raw(keys)
         except Exception as e:
             self._notify_hooks("error", "GET_MANY", keys_str, error=e)
             raise
         duration = (time.monotonic() - start) * 1000
-        result = {}
-        for key, raw in zip(keys, raw_values):
-            val = self._pipeline.decode(raw)
-            result[key] = val if val is not _MISS else None
+        result = {k: (v if v is not _MISS else None) for k, v in raw_result.items()}
         self._notify_hooks("after", "GET_MANY", keys_str, result=result, duration_ms=duration)
         return result
 
