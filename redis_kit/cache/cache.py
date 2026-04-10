@@ -213,6 +213,18 @@ class Cache:
         self._notify_hooks("after", "GET_MANY", keys_str, result=result, duration_ms=duration)
         return result
 
+    def _get_many_raw(self, keys: list[str]) -> dict[str, Any]:
+        """Internal get_many returning _MISS sentinel for cache misses."""
+        full_keys = [self._make_key(k) for k in keys]
+        if self._is_cluster:
+            raw_values = [self._client.get(k) for k in full_keys]
+        else:
+            raw_values = self._client.mget(full_keys)
+        result = {}
+        for key, raw in zip(keys, raw_values):
+            result[key] = self._pipeline.decode(raw)
+        return result
+
     def set_many(self, mapping: dict[str, Any], ttl: str | int | None = None) -> None:
         resolved_ttl = self._resolve_ttl(ttl)
         keys_str = ",".join(mapping.keys())

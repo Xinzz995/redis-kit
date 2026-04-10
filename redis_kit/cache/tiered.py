@@ -73,13 +73,14 @@ class TieredCache:
             else:
                 l2_keys.append(key)
         if l2_keys:
-            l2_result = self._l2.get_many(l2_keys)
+            l2_result = self._l2._get_many_raw(l2_keys)
             for key, value in l2_result.items():
-                if value is not None:
+                if value is not _L2_MISS:
                     self._l1.set(key, value)
+                    result[key] = value
                 else:
                     self._l1.set(key, _NEGATIVE, ttl=self._negative_ttl)
-                result[key] = value
+                    result[key] = None
         return result
 
     def set_many(self, mapping: dict[str, Any], ttl: str | int | None = None) -> None:
