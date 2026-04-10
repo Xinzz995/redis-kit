@@ -11,11 +11,25 @@ redis.call("lpush", KEYS[2], ARGV[2])
 return 1
 """
 
-# Atomic poll: get and remove due items from sorted set
+# Atomic put with server-side time
+# KEYS[1] = sorted set key
+# ARGV[1] = delay in seconds, ARGV[2] = payload
+PUT_SCRIPT = """
+local time = redis.call("TIME")
+local now = tonumber(time[1]) + tonumber(time[2]) / 1000000
+local score = now + tonumber(ARGV[1])
+redis.call("zadd", KEYS[1], score, ARGV[2])
+return 1
+"""
+
+# Atomic poll with server-side time: get and remove due items
+# KEYS[1] = sorted set key
+# ARGV[1] = max count
 POLL_SCRIPT = """
 local key = KEYS[1]
-local now = tonumber(ARGV[1])
-local count = tonumber(ARGV[2])
+local count = tonumber(ARGV[1])
+local time = redis.call("TIME")
+local now = tonumber(time[1]) + tonumber(time[2]) / 1000000
 local results = redis.call("zrangebyscore", key, "-inf", now, "LIMIT", 0, count)
 for i, v in ipairs(results) do
     redis.call("zrem", key, v)
