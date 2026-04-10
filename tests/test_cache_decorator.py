@@ -89,6 +89,18 @@ class TestCachedDecorator:
         get_item(1)
         assert 3598 <= self.client.ttl(b"item:1") <= 3600
 
+    def test_invalidate_removes_cached_value(self):
+        """@cached .invalidate() should delete the cache key for given args."""
+
+        @cached(self.client, key="inv:{x}", ttl=60, ttl_jitter=0)
+        def compute(x: int) -> int:
+            return x * 10
+
+        assert compute(5) == 50
+        compute.invalidate(5)
+        raw = self.client.get(b"inv:5")
+        assert raw is None
+
     @pytest.mark.asyncio
     async def test_async_function(self):
         async_client = fakeredis.aioredis.FakeRedis(decode_responses=False)
@@ -106,6 +118,24 @@ class TestCachedDecorator:
             result2 = await async_fn(1)
             assert result2 == {"x": 1}
             assert call_count == 1
+        finally:
+            await async_client.flushall()
+            await async_client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_async_invalidate_removes_cached_value(self):
+        """@cached async .invalidate() should delete the cache key for given args."""
+        async_client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+
+        @cached(async_client, key="ainv:{x}", ttl=60, ttl_jitter=0)
+        async def compute(x: int) -> int:
+            return x * 10
+
+        try:
+            assert await compute(5) == 50
+            await compute.invalidate(5)
+            raw = await async_client.get(b"ainv:5")
+            assert raw is None
         finally:
             await async_client.flushall()
             await async_client.aclose()
