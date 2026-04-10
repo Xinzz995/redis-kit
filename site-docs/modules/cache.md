@@ -109,6 +109,42 @@ await get_product.invalidate(pid=42)
 cache.set("user:999", None, ttl=60)  # Cache None to prevent penetration
 ```
 
+## 降级策略（FallbackPolicy）
+
+当 Redis 连接失败时，可配置降级策略而非直接抛异常。
+
+```python
+from redis_kit import Cache, FallbackPolicy
+
+# 策略 1: 静默降级，返回 None
+policy = FallbackPolicy(on_connection_error="return_none")
+cache = Cache(conn.sync_client, prefix="myapp", fallback_policy=policy)
+
+# 策略 2: 自定义回调
+def my_fallback(command, key, error):
+    return {"from": "local_cache"}
+
+policy = FallbackPolicy(on_connection_error="callback", fallback=my_fallback)
+cache = Cache(conn.sync_client, prefix="myapp", fallback_policy=policy)
+```
+
+详细说明参见 [异常处理 - 降级策略](../configuration/exceptions.md)。
+
+## Hooks（可观测性）
+
+Cache 的所有操作（get、set、delete、get_many、set_many、delete_pattern）都支持 Hook 生命周期：`before` → `after`（成功时）/ `error`（失败时）。
+
+```python
+from redis_kit import Cache
+from redis_kit.observability import OpenTelemetryHook, MetricsCollector
+
+cache = Cache(
+    conn.sync_client,
+    prefix="myapp",
+    hooks=[OpenTelemetryHook(), MetricsCollector()],
+)
+```
+
 ## TTL 抖动（防雪崩）
 
 ```python

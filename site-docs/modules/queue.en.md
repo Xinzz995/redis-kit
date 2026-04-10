@@ -17,6 +17,34 @@ pubsub.subscribe("events", handler)
 pubsub.listen()
 ```
 
+### Graceful Shutdown
+
+`listen()` supports graceful shutdown and configurable poll timeout:
+
+```python
+import threading
+
+pubsub = PubSub(conn.sync_client, prefix="myapp")
+pubsub.subscribe("events", handler)
+
+# Run in a background thread
+thread = threading.Thread(target=pubsub.listen, kwargs={"timeout": 1.0})
+thread.start()
+
+# When you need to stop
+pubsub.stop()   # Signal listen() to exit after current poll cycle
+thread.join()
+
+# Or close directly (stops listening and releases resources)
+pubsub.close()
+```
+
+### Pattern Subscription
+
+```python
+pubsub.psubscribe("events.*", handler)  # Matches events.order, events.user, etc.
+```
+
 ## Delay Queue
 
 Delayed execution queue based on Sorted Set.

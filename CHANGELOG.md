@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.7.1] - 2026-04-11
+
+### Fixed (Critical)
+- **Repository**: `save()` history lpush moved after optimistic lock check — prevents history pollution on version conflict (C-1)
+- **PubSub**: `except Exception: pass` replaced with `_logger.exception()` — errors are now logged instead of silently swallowed (C-2)
+- **RateLimit**: `@rate_limit` decorator type hint updated to accept both sync and async Redis clients (C-3)
+- **Cache**: `hooks.before()` and `hooks.on_error()` now called for all operations — previously dead code (C-4)
+- **Cache**: `FallbackPolicy` fully implemented — three strategies: `"raise"`, `"return_none"`, `"callback"` (C-5)
+- **OTel**: `ContextVar` replaced with span stack (`ContextVar[list[Span]]`) — fixes concurrent async span leak (C-6)
+
+### Fixed (Important)
+- **Repository**: `_from_hash` now handles `dataclasses.MISSING` default fields without crashing (I-1)
+- **Repository**: `get_type_hints` catches `(NameError, AttributeError)` instead of broad `Exception` (I-2)
+- **Repository**: `datetime.now()` replaced with `datetime.now(tz=UTC)` for timezone safety (I-3)
+- **Session**: `update()` now uses Lua script for atomic EXISTS+HSET+EXPIRE (I-4)
+- **Session**: `refresh()` simplified to single `expire()` call, eliminating TOCTOU race (I-5)
+- **Stream**: `ensure_group()` catches `ResponseError` instead of broad `Exception` for BUSYGROUP (I-6)
+- **TieredCache**: `get()` uses `_get_raw()` to distinguish cached `None` from cache miss (I-7)
+- **Lock**: Watchdog timer list pruned in `renew()` to prevent memory leak (I-8)
+- **Repository**: `delete()` now uses Lua optimistic lock — prevents concurrent version conflicts (I-9)
+
+### Improved (Suggestions)
+- **RateLimit**: Lua scripts now use `redis.call("TIME")` instead of client-side `time.time()` — eliminates distributed clock drift (S-1)
+- **Lock**: `LockReleaseError` no longer masks original exceptions in context manager (S-2)
+- **Connection**: `aclose()` now closes all async clients across all event loops (S-3)
+- **PubSub**: `listen()` refactored with `get_message()` polling, `stop()` method, and `timeout` parameter for graceful shutdown (S-4)
+- **Stream**: `StreamMessage._consumer` typed as `StreamConsumer | AsyncStreamConsumer | None` instead of `Any` (S-5)
+- **Cache**: `delete()` now calls `after` hook on success (final review fix)
+- **Connection**: `aclose()` logs debug message on client close failure instead of silent pass (final review fix)
+
+### Stats
+- 414 tests (up from 336), 0 failures
+- 36 files changed, +2199 -312 lines
+
 ## [0.7.0] - 2026-04-10
 
 ### Fixed (Critical)

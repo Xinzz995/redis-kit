@@ -43,5 +43,26 @@ cache = Cache(conn.sync_client, fallback_policy=policy)
 | Mode | Behavior |
 |------|----------|
 | `"raise"` (default) | Re-raises the exception |
-| `"return_none"` | Swallows the error, returns None |
+| `"return_none"` | Logs a warning, returns None |
 | `"callback"` | Calls the `fallback` function and returns its result |
+
+### Callback Example
+
+```python
+from redis_kit import Cache, FallbackPolicy
+
+def local_fallback(command: str, key: str, error: Exception):
+    """Fall back to local cache when Redis is unavailable"""
+    if command == "GET":
+        return local_cache.get(key)
+    return None
+
+policy = FallbackPolicy(
+    on_connection_error="callback",
+    fallback=local_fallback,
+)
+cache = Cache(conn.sync_client, prefix="myapp", fallback_policy=policy)
+```
+
+!!! note "Only triggers for connection errors"
+    FallbackPolicy only activates for `RedisConnectionError` and `RedisTimeoutError`. Other exceptions (e.g., serialization errors) are always re-raised.

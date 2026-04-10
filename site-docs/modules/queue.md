@@ -17,6 +17,34 @@ pubsub.subscribe("events", handler)
 pubsub.listen()
 ```
 
+### 优雅停止
+
+`listen()` 支持优雅停止和可配置的轮询超时：
+
+```python
+import threading
+
+pubsub = PubSub(conn.sync_client, prefix="myapp")
+pubsub.subscribe("events", handler)
+
+# 在后台线程中运行
+thread = threading.Thread(target=pubsub.listen, kwargs={"timeout": 1.0})
+thread.start()
+
+# 需要停止时
+pubsub.stop()   # 信号 listen() 在当前轮询周期后退出
+thread.join()
+
+# 或者直接关闭（同时停止监听并释放资源）
+pubsub.close()
+```
+
+### 模式订阅
+
+```python
+pubsub.psubscribe("events.*", handler)  # 匹配 events.order、events.user 等
+```
+
 ## 延迟队列（Delay Queue）
 
 基于 Sorted Set 的延迟执行队列。

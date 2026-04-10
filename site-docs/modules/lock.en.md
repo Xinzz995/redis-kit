@@ -45,6 +45,21 @@ lock = Lock(conn.sync_client, prefix="myapp:lock", is_cluster=conn.is_cluster)
 # Keys automatically wrapped in {hash_tag} for Lua script slot safety
 ```
 
+## Exception Safety
+
+The lock context manager guarantees it will never mask your original exception. If the lock release fails (e.g., lock TTL expired) while your code also raised an exception, the original exception propagates normally, and the release failure is logged as a warning.
+
+```python
+try:
+    with lock("resource", timeout=5):
+        raise ValueError("business logic error")
+except ValueError:
+    # ValueError propagates normally, even if lock release fails
+    pass
+```
+
+On clean exit (no exception), a failed release will raise `LockReleaseError` as expected.
+
 ## Async Usage
 
 ```python

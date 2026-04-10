@@ -109,6 +109,42 @@ await get_product.invalidate(pid=42)
 cache.set("user:999", None, ttl=60)  # Cache None to prevent penetration
 ```
 
+## Fallback Policy
+
+Configure degradation strategies for Redis connection failures instead of raising exceptions.
+
+```python
+from redis_kit import Cache, FallbackPolicy
+
+# Strategy 1: Silent degradation, return None
+policy = FallbackPolicy(on_connection_error="return_none")
+cache = Cache(conn.sync_client, prefix="myapp", fallback_policy=policy)
+
+# Strategy 2: Custom callback
+def my_fallback(command, key, error):
+    return {"from": "local_cache"}
+
+policy = FallbackPolicy(on_connection_error="callback", fallback=my_fallback)
+cache = Cache(conn.sync_client, prefix="myapp", fallback_policy=policy)
+```
+
+See [Exception Handling - Fallback Policy](../configuration/exceptions.md#fallback-policy) for details.
+
+## Hooks (Observability)
+
+All Cache operations (get, set, delete, get_many, set_many, delete_pattern) support the full hook lifecycle: `before` → `after` (on success) / `error` (on failure).
+
+```python
+from redis_kit import Cache
+from redis_kit.observability import OpenTelemetryHook, MetricsCollector
+
+cache = Cache(
+    conn.sync_client,
+    prefix="myapp",
+    hooks=[OpenTelemetryHook(), MetricsCollector()],
+)
+```
+
 ## TTL Jitter (Stampede Prevention)
 
 ```python
