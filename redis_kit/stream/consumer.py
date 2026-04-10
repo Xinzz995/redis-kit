@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
+from redis.exceptions import ResponseError
+
 from redis_kit.exceptions import StreamError
 from redis_kit.stream.message import StreamMessage
 
@@ -31,11 +33,11 @@ class StreamConsumer:
     def ensure_group(self, start_id: str = "0") -> None:
         try:
             self._client.xgroup_create(self._stream, self._group, id=start_id, mkstream=True)
-        except Exception as e:
-            if "BUSYGROUP" in str(e):
-                pass  # Group already exists
-            else:
+        except ResponseError as e:
+            if "BUSYGROUP" not in str(e):
                 raise StreamError(f"Failed to create group '{self._group}'") from e
+        except Exception as e:
+            raise StreamError(f"Failed to create group '{self._group}'") from e
 
     def listen(self, count: int = 10, block: int = 5000) -> Iterator[StreamMessage]:
         results = self._client.xreadgroup(
