@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
@@ -31,26 +32,26 @@ class AsyncSessionManager:
     async def create(self, data: dict[str, Any]) -> str:
         session_id = self._id_generator()
         key = self._make_key(session_id)
-        str_data = {k: str(v) for k, v in data.items()}
+        str_data = {k: json.dumps(v) for k, v in data.items()}
         pipe = self._client.pipeline(transaction=True)
         pipe.hset(key, mapping=str_data)
         pipe.expire(key, self._ttl)
         await pipe.execute()
         return session_id
 
-    async def get(self, session_id: str) -> dict[str, str] | None:
+    async def get(self, session_id: str) -> dict[str, Any] | None:
         key = self._make_key(session_id)
         data = await self._client.hgetall(key)
         if not data:
             return None
         return {
-            k.decode() if isinstance(k, bytes) else k: v.decode() if isinstance(v, bytes) else v
+            (k.decode() if isinstance(k, bytes) else k): json.loads(v.decode() if isinstance(v, bytes) else v)
             for k, v in data.items()
         }
 
     async def update(self, session_id: str, data: dict[str, Any]) -> None:
         key = self._make_key(session_id)
-        str_data = {k: str(v) for k, v in data.items()}
+        str_data = {k: json.dumps(v) for k, v in data.items()}
         pipe = self._client.pipeline(transaction=True)
         pipe.exists(key)
         pipe.hset(key, mapping=str_data)

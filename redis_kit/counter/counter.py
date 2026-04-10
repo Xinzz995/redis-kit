@@ -17,6 +17,7 @@ class BoundCounter:
         return self._client.incrby(self._key, amount)
 
     def decr(self, amount: int = 1) -> int:
+        """Decrement counter. Value can go below zero."""
         return self._client.decrby(self._key, amount)
 
     def get(self) -> int:
@@ -41,6 +42,7 @@ class Counter:
         return self._client.incrby(self._make_key(name), amount)
 
     def decr(self, name: str, amount: int = 1) -> int:
+        """Decrement counter. Value can go below zero."""
         return self._client.decrby(self._make_key(name), amount)
 
     def get(self, name: str) -> int:

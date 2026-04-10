@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, TypeVar
 
-from redis_kit.exceptions import EntityNotFoundError, OptimisticLockError
+from redis_kit.exceptions import EntityNotFoundError, OptimisticLockError, RepositoryError
 from redis_kit.repository._lua import OPTIMISTIC_LOCK_SET
 from redis_kit.repository.model import BaseModel
 
@@ -175,17 +175,27 @@ class Repository:
             raise EntityNotFoundError(f"Entity '{entity_id}' not found")
         entity = self._from_hash(data)
         if not entity.deleted:
-            raise EntityNotFoundError(f"Entity '{entity_id}' is not deleted")
+            raise RepositoryError(f"Entity '{entity_id}' is not deleted")
         self._client.hset(key, mapping={"deleted": "0", "deleted_at": "__NONE__"})
         return dataclasses.replace(entity, deleted=False, deleted_at=None)
 
     def find_all(self) -> list[T]:
         ids = self._client.smembers(self._index_key)
-        result = []
+        if not ids:
+            return []
+        pipe = self._client.pipeline(transaction=False)
+        decoded_ids = []
         for raw_id in ids:
             eid = raw_id.decode() if isinstance(raw_id, bytes) else raw_id
-            entity = self.find(eid)
-            if entity is not None:
+            decoded_ids.append(eid)
+            pipe.hgetall(self._make_key(eid))
+        all_data = pipe.execute()
+        result = []
+        for data in all_data:
+            if not data:
+                continue
+            entity = self._from_hash(data)
+            if not entity.deleted:
                 result.append(entity)
         return result
 

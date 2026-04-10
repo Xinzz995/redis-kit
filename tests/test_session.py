@@ -29,7 +29,7 @@ class TestSessionManager:
         sid = mgr.create({"user_id": 1, "role": "admin"})
         data = mgr.get(sid)
         assert data is not None
-        assert data["user_id"] == "1"
+        assert data["user_id"] == 1
         assert data["role"] == "admin"
 
     def test_get_nonexistent_returns_none(self):
@@ -42,7 +42,7 @@ class TestSessionManager:
         mgr.update(sid, {"role": "superadmin"})
         data = mgr.get(sid)
         assert data["role"] == "superadmin"
-        assert data["user_id"] == "1"
+        assert data["user_id"] == 1
 
     def test_delete(self):
         mgr = self._make_manager()
@@ -96,7 +96,7 @@ class TestAsyncSessionManager:
         mgr = self._make_manager()
         sid = await mgr.create({"user_id": 1, "role": "admin"})
         data = await mgr.get(sid)
-        assert data["user_id"] == "1"
+        assert data["user_id"] == 1
         assert data["role"] == "admin"
 
     @pytest.mark.asyncio

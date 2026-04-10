@@ -17,6 +17,7 @@ class AsyncBoundCounter:
         return await self._client.incrby(self._key, amount)
 
     async def decr(self, amount: int = 1) -> int:
+        """Decrement counter. Value can go below zero."""
         return await self._client.decrby(self._key, amount)
 
     async def get(self) -> int:
@@ -41,6 +42,7 @@ class AsyncCounter:
         return await self._client.incrby(self._make_key(name), amount)
 
     async def decr(self, name: str, amount: int = 1) -> int:
+        """Decrement counter. Value can go below zero."""
         return await self._client.decrby(self._make_key(name), amount)
 
     async def get(self, name: str) -> int:

@@ -5,19 +5,10 @@ import time
 import uuid
 from typing import TYPE_CHECKING, Any
 
+from redis_kit.queue._lua import POLL_SCRIPT
+
 if TYPE_CHECKING:
     import redis.asyncio
-
-_POLL_SCRIPT = """
-local key = KEYS[1]
-local now = tonumber(ARGV[1])
-local count = tonumber(ARGV[2])
-local results = redis.call("zrangebyscore", key, "-inf", now, "LIMIT", 0, count)
-for i, v in ipairs(results) do
-    redis.call("zrem", key, v)
-end
-return results
-"""
 
 
 class AsyncDelayQueue:
@@ -26,7 +17,7 @@ class AsyncDelayQueue:
     def __init__(self, client: redis.asyncio.Redis, name: str, prefix: str = "") -> None:
         self._client = client
         self._key = f"{prefix}:{name}" if prefix else name
-        self._poll_script = self._client.register_script(_POLL_SCRIPT)
+        self._poll_script = self._client.register_script(POLL_SCRIPT)
 
     async def put(self, data: Any, delay: int) -> None:
         score = time.time() + delay
