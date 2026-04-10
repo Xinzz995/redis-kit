@@ -8,7 +8,11 @@ _logger = logging.getLogger("redis_kit.hooks")
 
 @runtime_checkable
 class CommandHook(Protocol):
-    """Protocol for observing Redis command execution."""
+    """Protocol for observing Redis command execution.
+
+    All methods are synchronous. Async operations call hooks synchronously;
+    hook implementations that need async I/O should enqueue work rather than block.
+    """
 
     def before(self, command: str, key: str, args: tuple) -> None: ...
     def after(self, command: str, key: str, result: Any, duration_ms: float) -> None: ...

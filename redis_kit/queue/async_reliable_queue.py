@@ -54,6 +54,7 @@ class AsyncReliableQueue:
         return AsyncMessage(id=msg["id"], data=msg["data"], _queue=self, _raw=result)
 
     async def _ack(self, raw: bytes) -> None:
+        """Remove message from processing list. O(N) where N is processing list length."""
         await self._client.lrem(self._processing_key, 1, raw)
 
     async def _nack(self, raw: bytes, data: Any) -> None:

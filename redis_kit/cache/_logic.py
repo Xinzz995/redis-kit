@@ -17,7 +17,11 @@ _NONE_MARKER_STR = "__REDIS_KIT_NONE__"
 
 
 def parse_ttl(ttl: str | int | float) -> int:
-    """Parse TTL from string like '2h30m' or numeric seconds."""
+    """Parse TTL from string like '2h30m' or numeric seconds.
+
+    Negative values raise ValueError. TTL=0 is allowed and results in
+    no expiry when used with Cache.set() (key stored permanently).
+    """
     if isinstance(ttl, (int, float)):
         if ttl < 0:
             raise ValueError(f"TTL must be non-negative, got {ttl}")
