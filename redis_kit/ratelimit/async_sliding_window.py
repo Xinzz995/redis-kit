@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 import uuid
 from typing import TYPE_CHECKING
 
@@ -32,14 +31,13 @@ class AsyncSlidingWindowLimiter:
 
     async def acquire(self, key: str) -> RateLimitResult:
         full_key = self._make_key(key)
-        now_ms = int(time.time() * 1000)
-        member = f"{now_ms}:{uuid.uuid4().hex[:8]}"
+        member = uuid.uuid4().hex
         window_ms = self._window * 1000
         ttl_ms = window_ms + 1000
 
         result = await self._script(
             keys=[full_key],
-            args=[self._limit, window_ms, now_ms, member, ttl_ms],
+            args=[self._limit, window_ms, member, ttl_ms],
         )
         return RateLimitResult(
             allowed=bool(result[0]),

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import time
 from typing import TYPE_CHECKING
 
 from redis_kit.ratelimit._lua import TOKEN_BUCKET_SCRIPT
@@ -38,10 +37,9 @@ class AsyncTokenBucketLimiter:
 
     async def acquire(self, key: str, cost: int = 1) -> RateLimitResult:
         tokens_key, ts_key = self._make_keys(key)
-        now = time.time()
         result = await self._script(
             keys=[tokens_key, ts_key],
-            args=[self._rate, self._capacity, now, cost, self._ttl],
+            args=[self._rate, self._capacity, cost, self._ttl],
         )
         return RateLimitResult(
             allowed=bool(result[0]),

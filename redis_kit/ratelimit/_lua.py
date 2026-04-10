@@ -5,9 +5,12 @@ local tokens_key = KEYS[1]
 local ts_key = KEYS[2]
 local rate = tonumber(ARGV[1])
 local capacity = tonumber(ARGV[2])
-local now = tonumber(ARGV[3])
-local cost = tonumber(ARGV[4])
-local ttl = tonumber(ARGV[5])
+local cost = tonumber(ARGV[3])
+local ttl = tonumber(ARGV[4])
+
+-- Use Redis server-side time to avoid distributed clock drift
+local time_result = redis.call("TIME")
+local now = tonumber(time_result[1]) + tonumber(time_result[2]) / 1000000
 
 local last_tokens = tonumber(redis.call("get", tokens_key))
 if last_tokens == nil then
@@ -44,9 +47,12 @@ SLIDING_WINDOW_SCRIPT = """
 local key = KEYS[1]
 local limit = tonumber(ARGV[1])
 local window_ms = tonumber(ARGV[2])
-local now = tonumber(ARGV[3])
-local member = ARGV[4]
-local ttl = tonumber(ARGV[5])
+local member = ARGV[3]
+local ttl = tonumber(ARGV[4])
+
+-- Use Redis server-side time to avoid distributed clock drift
+local time_result = redis.call("TIME")
+local now = tonumber(time_result[1]) * 1000 + math.floor(tonumber(time_result[2]) / 1000)
 
 redis.call("zremrangebyscore", key, "-inf", now - window_ms)
 
