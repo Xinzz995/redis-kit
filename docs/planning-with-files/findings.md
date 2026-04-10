@@ -73,6 +73,15 @@
 - XAUTOCLAIM 不支持，claim_stale 测试标记为 skip
 - XPENDING IDLE 过滤用严格小于，需 sleep(0.01) workaround
 
+## 2026-04-10: v0.7.1 Suggestion 改进
+
+### 已修复（全部 5 项）
+- S-1: RateLimit Lua 脚本使用 Redis `TIME` 替代 Python `time.time()`，消除分布式时钟偏差
+- S-2: Lock `try/finally` 改为 `except BaseException/else`，LockReleaseError 不再遮蔽原始异常
+- S-3: ConnectionManager `aclose()` 快照并清空所有 async 客户端，不再仅关闭当前 loop 的
+- S-4: PubSub `listen()` 使用 `get_message()` 轮询 + `_running` 标志 + `stop()` 方法实现优雅停止
+- S-5: StreamMessage `_consumer: Any` → `StreamConsumer | AsyncStreamConsumer | None`（TYPE_CHECKING 防循环导入）
+
 ## 2026-04-11: v0.7.1 Code Review 发现
 
 ### 已修复（全部 15 项）

@@ -79,7 +79,20 @@
   - Lock: watchdog timer 内存清理
   - RateLimit: 装饰器 async 类型修复
 
+## 2026-04-10: v0.7.1 Suggestion 改进（5 项）
+- 第二轮 Code Review Suggestion 级别改进
+- 5 个并行子代理执行，全部完成
+- 5 个 commit，15 文件改动
+- 414 测试全部通过（新增 14 个）
+- 关键改进：
+  - RateLimit: Lua 脚本使用 Redis `TIME` 替代客户端 `time.time()`，消除分布式时钟偏差
+  - Lock: `except/else` 模式防止 `LockReleaseError` 遮蔽原始异常
+  - ConnectionManager: `aclose()` 关闭所有 event loop 下的 async 客户端
+  - PubSub: `listen()` 改用 `get_message()` 轮询 + `_running` 标志 + `stop()` 方法
+  - StreamMessage: `_consumer: Any` 改为 `StreamConsumer | AsyncStreamConsumer | None`（TYPE_CHECKING）
+
 ## 当前状态
 - **阶段**: 全部完成
 - **版本**: v0.7.1 (code-review/v0.7.1-fixes 分支)
+- **测试**: 414 passed, 36 skipped
 - **文档站**: https://xinzz995.github.io/redis-kit/
