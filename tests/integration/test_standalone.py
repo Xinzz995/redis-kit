@@ -98,7 +98,7 @@ class TestSessionIntegration:
         mgr = SessionManager(standalone_client, prefix="inttest:session", ttl=60)
         sid = mgr.create({"user_id": 1, "role": "admin"})
         data = mgr.get(sid)
-        assert data["user_id"] == "1"
+        assert data["user_id"] == 1
         mgr.update(sid, {"role": "superadmin"})
         assert mgr.get(sid)["role"] == "superadmin"
         mgr.delete(sid)
