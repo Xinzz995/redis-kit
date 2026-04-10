@@ -196,7 +196,6 @@ class TestReadWriteLock:
                 with lock.write("rw-resource", timeout=10, blocking_timeout=0.1):
                     pass
 
-
     def test_write_lock_release_failure_does_not_mask_user_exception(self):
         """If user code raises inside write() and release fails, original exception propagates."""
         lock = Lock(self.client, prefix="test:lock")
