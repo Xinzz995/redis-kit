@@ -33,11 +33,12 @@ class AsyncBloomFilter:
         return max(1, int((m / n) * math.log(2)))
 
     def _get_offsets(self, item: str) -> list[int]:
-        offsets = []
-        for i in range(self._hash_count):
-            h = hashlib.sha256(f"{i}:{item}".encode()).hexdigest()
-            offsets.append(int(h, 16) % self._size)
-        return offsets
+        """Double hashing: compute 2 base hashes, derive k offsets."""
+        data = item.encode()
+        h = hashlib.md5(data).hexdigest()  # noqa: S324
+        h1 = int(h[:16], 16)
+        h2 = int(h[16:], 16)
+        return [(h1 + i * h2) % self._size for i in range(self._hash_count)]
 
     async def add(self, item: str) -> None:
         pipe = self._client.pipeline(transaction=False)
@@ -59,9 +60,19 @@ class AsyncBloomFilter:
         await pipe.execute()
 
     async def exists_many(self, items: list[str]) -> list[bool]:
+        pipe = self._client.pipeline(transaction=False)
+        item_offsets = [self._get_offsets(item) for item in items]
+        for offsets in item_offsets:
+            for offset in offsets:
+                pipe.getbit(self._key, offset)
+        all_bits = await pipe.execute()
+
         results = []
-        for item in items:
-            results.append(await self.exists(item))
+        idx = 0
+        for offsets in item_offsets:
+            item_bits = all_bits[idx : idx + len(offsets)]
+            results.append(all(item_bits))
+            idx += len(offsets)
         return results
 
     async def reset(self) -> None:

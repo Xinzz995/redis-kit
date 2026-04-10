@@ -68,6 +68,16 @@ def cached(
             bound_args.apply_defaults()
             return bypass(*bound_args.args, **bound_args.kwargs)
 
+        def _invalidate(*args: Any, **kwargs: Any) -> None:
+            """Invalidate the cached result for the given arguments."""
+            cache_key = _resolve_key(args, kwargs)
+            client.delete(cache_key)
+
+        async def _async_invalidate(*args: Any, **kwargs: Any) -> None:
+            """Async invalidate the cached result for the given arguments."""
+            cache_key = _resolve_key(args, kwargs)
+            await client.delete(cache_key)
+
         if is_async:
 
             @functools.wraps(func)
@@ -98,6 +108,7 @@ def cached(
                     await client.set(cache_key, encoded)
                 return result
 
+            async_wrapper.invalidate = _async_invalidate  # type: ignore[attr-defined]
             return async_wrapper
         else:
 
@@ -129,6 +140,7 @@ def cached(
                     client.set(cache_key, encoded)
                 return result
 
+            sync_wrapper.invalidate = _invalidate  # type: ignore[attr-defined]
             return sync_wrapper
 
     return decorator
