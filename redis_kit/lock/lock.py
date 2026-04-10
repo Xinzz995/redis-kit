@@ -140,6 +140,9 @@ class Lock:
             script = self._extend_reentrant_script if reentrant else self._extend_script
             result = script(keys=[key], args=[owner, timeout])
             if result:
+                # Prune completed timers before adding the new one to prevent unbounded growth.
+                with handle._lock:
+                    handle._timers = [t for t in handle._timers if t.is_alive()]
                 timer = threading.Timer(interval, renew)
                 timer.daemon = True
                 handle.add(timer)
