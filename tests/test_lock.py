@@ -4,7 +4,7 @@ import fakeredis
 import fakeredis.aioredis
 import pytest
 
-from redis_kit.exceptions import LockAcquireError
+from redis_kit.exceptions import LockAcquireError, LockReleaseError
 from redis_kit.lock.async_lock import AsyncLock
 from redis_kit.lock.lock import Lock
 
@@ -47,6 +47,25 @@ class TestBasicLock:
         with lock("res-a", timeout=10):
             with lock("res-b", timeout=10):
                 assert True  # No deadlock
+
+    def test_original_exception_not_masked_by_release_failure(self):
+        """ValueError raised inside the context must propagate even when release fails."""
+        lock = Lock(self.client, prefix="test:lock")
+        with pytest.raises(ValueError, match="original"):
+            with lock("expired-resource", timeout=10):
+                # Simulate lock key expiry by deleting it before user code raises.
+                key = lock._make_key("expired-resource")
+                self.client.delete(key)
+                raise ValueError("original")
+
+    def test_lock_release_error_raised_on_clean_exit(self):
+        """LockReleaseError must still propagate when no other exception is in flight."""
+        lock = Lock(self.client, prefix="test:lock")
+        with pytest.raises(LockReleaseError):
+            with lock("clean-exit-resource", timeout=10):
+                # Delete the key so release will fail after a clean yield.
+                key = lock._make_key("clean-exit-resource")
+                self.client.delete(key)
 
     def test_watchdog_timer_list_does_not_grow_unboundedly(self):
         """Verify that completed timers are pruned so _timers never accumulates stale entries."""
@@ -115,6 +134,25 @@ class TestAsyncLock:
         async with lock("a", timeout=10):
             async with lock("b", timeout=10):
                 pass
+
+    @pytest.mark.asyncio
+    async def test_original_exception_not_masked_by_release_failure(self):
+        """ValueError raised inside the context must propagate even when release fails."""
+        lock = AsyncLock(self.client, prefix="test:lock")
+        with pytest.raises(ValueError, match="original"):
+            async with lock("expired-resource", timeout=10):
+                key = lock._make_key("expired-resource")
+                await self.client.delete(key)
+                raise ValueError("original")
+
+    @pytest.mark.asyncio
+    async def test_lock_release_error_raised_on_clean_exit(self):
+        """LockReleaseError must still propagate when no other exception is in flight."""
+        lock = AsyncLock(self.client, prefix="test:lock")
+        with pytest.raises(LockReleaseError):
+            async with lock("clean-exit-resource", timeout=10):
+                key = lock._make_key("clean-exit-resource")
+                await self.client.delete(key)
 
 
 class TestReadWriteLock:
