@@ -21,8 +21,15 @@ bf.add_many(["a@x.com", "b@x.com", "c@x.com"])
 results = bf.exists_many(["a@x.com", "d@x.com"])  # [True, False]
 ```
 
+## Reset
+
+```python
+bf.reset()  # Delete the underlying Redis key, clearing the filter
+```
+
 ## How It Works
 
-- Uses multiple SHA-256 hash functions to map elements to positions in a bit array
+- Uses double hashing technique (two MD5-based hashes to derive k offsets), faster than per-iteration SHA-256
 - Pipeline-based SETBIT/GETBIT operations for improved performance
+- `exists_many` uses a single pipeline batch check instead of N independent calls
 - Automatically calculates optimal bit array size and hash function count based on `expected_items` and `false_positive_rate`

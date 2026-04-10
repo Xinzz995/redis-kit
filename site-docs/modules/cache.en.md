@@ -85,6 +85,24 @@ def get_user(uid: int, force: bool = False) -> dict:
     ...
 ```
 
+### Cache Invalidation
+
+```python
+@cached(conn.sync_client, key="user:{user_id}", ttl="1h")
+def get_user(user_id: int) -> dict:
+    return db.query_user(user_id)
+
+# Invalidate cache for specific arguments
+get_user.invalidate(user_id=1)
+
+# Async version
+@cached(conn.async_client, key="product:{pid}", ttl=3600)
+async def get_product(pid: int) -> dict:
+    return await db.query_product(pid)
+
+await get_product.invalidate(pid=42)
+```
+
 ## Cache Penetration Protection (None Caching)
 
 ```python

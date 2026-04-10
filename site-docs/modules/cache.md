@@ -85,6 +85,24 @@ def get_user(uid: int, force: bool = False) -> dict:
     ...
 ```
 
+### 缓存失效
+
+```python
+@cached(conn.sync_client, key="user:{user_id}", ttl="1h")
+def get_user(user_id: int) -> dict:
+    return db.query_user(user_id)
+
+# 清除特定参数的缓存
+get_user.invalidate(user_id=1)
+
+# 异步版本
+@cached(conn.async_client, key="product:{pid}", ttl=3600)
+async def get_product(pid: int) -> dict:
+    return await db.query_product(pid)
+
+await get_product.invalidate(pid=42)
+```
+
 ## 防穿透（None 缓存）
 
 ```python

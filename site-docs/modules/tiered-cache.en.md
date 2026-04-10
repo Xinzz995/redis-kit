@@ -51,6 +51,15 @@ cache.clear_local()                 # Clear all L1
 print(cache.local_size)             # Current L1 entry count
 ```
 
+## Bound Operations
+
+```python
+user = cache.bind("user:1")
+user.set(data, ttl=3600)
+user.get()
+user.delete()
+```
+
 ## Async Usage
 
 ```python
@@ -58,4 +67,9 @@ from redis_kit.cache import AsyncTieredCache
 
 cache = AsyncTieredCache(async_redis_cache, local_maxsize=2000, local_ttl=30.0)
 value = await cache.get("key")
+
+# Bound operations
+user = cache.bind("user:1")
+await user.set(data, ttl=3600)
+await user.get()
 ```

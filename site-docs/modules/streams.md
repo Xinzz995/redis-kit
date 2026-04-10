@@ -75,6 +75,18 @@ await producer.add({"order_id": "456"})
 consumer = AsyncStreamConsumer(conn.async_client, stream="orders", group="g", consumer_name="w")
 await consumer.ensure_group()
 
+# 自动 ACK
 async for message in consumer.listen(count=10, block=5000):
     await process(message.data)
+
+# 手动 ACK — 使用 async_ack()
+consumer = AsyncStreamConsumer(conn.async_client, stream="orders", group="g", consumer_name="w", auto_ack=False)
+await consumer.ensure_group()
+
+async for message in consumer.listen(count=10, block=5000):
+    try:
+        await process(message.data)
+        await message.async_ack()  # 异步环境使用 async_ack()
+    except Exception:
+        pass
 ```

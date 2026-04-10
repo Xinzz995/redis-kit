@@ -1,6 +1,6 @@
 # Session Management
 
-Session management based on Redis Hash.
+Session management based on Redis Hash with JSON serialization to preserve data types.
 
 ## Usage
 
@@ -12,10 +12,11 @@ sessions = SessionManager(conn.sync_client, prefix="session", ttl=1800)
 # Create
 session_id = sessions.create({"user_id": 1, "role": "admin"})
 
-# Read
+# Read — values preserve original types (int, list, dict, etc.)
 data = sessions.get(session_id)
+assert data["user_id"] == 1  # int, not "1"
 
-# Update (partial update)
+# Update (partial update, also refreshes TTL)
 sessions.update(session_id, {"last_active": "2026-04-10"})
 
 # Refresh TTL

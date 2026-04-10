@@ -11,17 +11,17 @@ Enterprise-grade Python Redis toolkit with sync/async dual-mode APIs.
 
 ## Features
 
-- **Cache** — Get/Set/Delete, TTL management, batch operations, SCAN-based iteration, `@cached` decorator, BoundCache, TTL jitter (anti-avalanche), None caching (anti-penetration)
+- **Cache** — Get/Set/Delete, TTL management, batch operations, SCAN-based iteration, `@cached` decorator with `.invalidate()`, BoundCache, TTL jitter (anti-avalanche), None caching (anti-penetration)
 - **Distributed Lock** — Basic lock, reentrant lock, read-write lock, watchdog auto-renewal, Lua-scripted atomic operations
 - **Queue** — PubSub, DelayQueue (Sorted Set), ReliableQueue (LMOVE + ack/nack)
-- **Bloom Filter** — SHA-256 multi-hash, pipeline-based bit operations, configurable false positive rate
+- **Bloom Filter** — Double hashing (MD5-based), pipeline-based bit operations, configurable false positive rate, `reset()`
 - **Counter & ID Generator** — Atomic INCR/DECR, BoundCounter, zero-padded ID generation
-- **Session Manager** — Redis Hash per session, CRUD, TTL refresh, custom ID generator
+- **Session Manager** — Redis Hash per session, JSON serialization (type-preserving), CRUD, TTL refresh, custom ID generator
 - **Rate Limiter** — Token bucket (burst-tolerant) and sliding window (exact count), Lua-scripted, `@rate_limit` decorator
-- **Tiered Cache** — L1 local LRU + L2 Redis, read-through backfill, negative caching, zero dependencies
-- **Redis Streams** — Consumer groups with auto/manual ACK, dead letter recovery (XAUTOCLAIM)
+- **Tiered Cache** — L1 local LRU + L2 Redis, read-through backfill, negative caching, `bind()`, zero dependencies
+- **Redis Streams** — Consumer groups with auto/manual ACK, `async_ack()` for async consumers, dead letter recovery (XAUTOCLAIM)
 - **Repository** — Dataclass entity → Redis Hash, CRUD, optimistic locking, soft delete, audit fields, version history
-- **Observability** — MetricsCollector hook, OpenTelemetry integration (optional)
+- **Observability** — Thread-safe MetricsCollector hook, OpenTelemetry integration with proper span lifecycle (optional)
 - **Pluggable Serialization** — JSON (default), Pickle, MessagePack (optional)
 - **Pluggable Compression** — Zlib, Zstandard (optional), LZ4 (optional)
 - **Topology Support** — Standalone, Sentinel (auto-failover), Cluster (data sharding) — switch by config
@@ -79,6 +79,10 @@ def get_user(user_id: int) -> dict:
 @cached(conn.sync_client, key="product:{pid}", ttl=3600)
 async def get_product(pid: int) -> dict:
     return await db.query_product(pid)
+
+# Cache invalidation
+get_user.invalidate(user_id=1)
+await get_product.invalidate(pid=42)
 ```
 
 ### Distributed Lock
@@ -148,6 +152,8 @@ bf.exists("unknown@example.com") # False (probably)
 
 bf.add_many(["a@x.com", "b@x.com"])
 results = bf.exists_many(["a@x.com", "c@x.com"])  # [True, False]
+
+bf.reset()  # Clear the filter
 ```
 
 ### Counter & ID Generator
@@ -178,8 +184,8 @@ from redis_kit import SessionManager
 sessions = SessionManager(conn.sync_client, prefix="session", ttl=1800)
 
 session_id = sessions.create({"user_id": 1, "role": "admin"})
-data = sessions.get(session_id)
-sessions.update(session_id, {"last_active": "2026-04-09"})
+data = sessions.get(session_id)  # {"user_id": 1, "role": "admin"} — types preserved
+sessions.update(session_id, {"last_active": "2026-04-09"})  # Also refreshes TTL
 sessions.refresh(session_id)  # Reset TTL
 sessions.delete(session_id)
 ```
