@@ -80,7 +80,7 @@ class TestSentinelConfig:
             sentinels=[("sentinel1", 26379), ("sentinel2", 26379)],
             service_name="mymaster",
         )
-        assert config.sentinels == [("sentinel1", 26379), ("sentinel2", 26379)]
+        assert config.sentinels == (("sentinel1", 26379), ("sentinel2", 26379))
         assert config.service_name == "mymaster"
 
     def test_defaults(self):
@@ -115,11 +115,24 @@ class TestSentinelConfig:
         assert config.password == "redis_pass"
         assert config.sentinel_password == "sentinel_pass"
 
+    def test_list_auto_converts_to_tuple(self):
+        config = SentinelConfig(sentinels=[("host1", 26379)], service_name="mymaster")
+        assert isinstance(config.sentinels, tuple)
+        assert isinstance(config.sentinels[0], tuple)
+
+    def test_tuple_input_preserved(self):
+        config = SentinelConfig(
+            sentinels=(("host1", 26379), ("host2", 26379)),
+            service_name="mymaster",
+        )
+        assert isinstance(config.sentinels, tuple)
+        assert config.sentinels == (("host1", 26379), ("host2", 26379))
+
 
 class TestClusterConfig:
     def test_required_fields(self):
         config = ClusterConfig(startup_nodes=[("node1", 6379), ("node2", 6380)])
-        assert config.startup_nodes == [("node1", 6379), ("node2", 6380)]
+        assert config.startup_nodes == (("node1", 6379), ("node2", 6380))
 
     def test_defaults(self):
         config = ClusterConfig(startup_nodes=[("h", 6379)])
@@ -147,3 +160,15 @@ class TestClusterConfig:
         )
         assert len(config.startup_nodes) == 3
         assert config.read_from_replicas is True
+
+    def test_list_auto_converts_to_tuple(self):
+        config = ClusterConfig(startup_nodes=[("host1", 7000)])
+        assert isinstance(config.startup_nodes, tuple)
+        assert isinstance(config.startup_nodes[0], tuple)
+
+    def test_tuple_input_preserved(self):
+        config = ClusterConfig(
+            startup_nodes=(("host1", 7000), ("host2", 7001)),
+        )
+        assert isinstance(config.startup_nodes, tuple)
+        assert config.startup_nodes == (("host1", 7000), ("host2", 7001))

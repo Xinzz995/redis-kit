@@ -104,7 +104,8 @@ class ConnectionManager:
         return self._build_standalone_sync()
 
     def _build_standalone_sync(self) -> redis.Redis:
-        assert isinstance(self._config, ConnectionConfig)
+        if not isinstance(self._config, ConnectionConfig):
+            raise TypeError(f"Expected ConnectionConfig, got {type(self._config)}")
         cfg = self._config
         if self._url:
             return redis.Redis.from_url(
@@ -113,6 +114,7 @@ class ConnectionManager:
                 socket_timeout=cfg.socket_timeout,
                 socket_connect_timeout=cfg.socket_connect_timeout,
                 decode_responses=cfg.decode_responses,
+                ssl=cfg.ssl,
             )
         return redis.Redis(
             host=cfg.host,
@@ -127,7 +129,8 @@ class ConnectionManager:
         )
 
     def _build_sentinel_sync(self) -> redis.Redis:
-        assert isinstance(self._config, SentinelConfig)
+        if not isinstance(self._config, SentinelConfig):
+            raise TypeError(f"Expected SentinelConfig, got {type(self._config)}")
         cfg = self._config
         sentinel = redis.sentinel.Sentinel(
             cfg.sentinels,
@@ -147,7 +150,8 @@ class ConnectionManager:
     def _build_cluster_sync(self) -> Any:
         from redis.cluster import ClusterNode, RedisCluster
 
-        assert isinstance(self._config, ClusterConfig)
+        if not isinstance(self._config, ClusterConfig):
+            raise TypeError(f"Expected ClusterConfig, got {type(self._config)}")
         cfg = self._config
         nodes = [ClusterNode(h, p) for h, p in cfg.startup_nodes]
         return RedisCluster(
@@ -158,6 +162,7 @@ class ConnectionManager:
             socket_connect_timeout=cfg.socket_connect_timeout,
             decode_responses=cfg.decode_responses,
             ssl=cfg.ssl,
+            read_from_replicas=cfg.read_from_replicas,
         )
 
     def _build_async_client(self) -> Any:
@@ -168,7 +173,8 @@ class ConnectionManager:
         return self._build_standalone_async()
 
     def _build_standalone_async(self) -> redis.asyncio.Redis:
-        assert isinstance(self._config, ConnectionConfig)
+        if not isinstance(self._config, ConnectionConfig):
+            raise TypeError(f"Expected ConnectionConfig, got {type(self._config)}")
         cfg = self._config
         if self._url:
             return redis.asyncio.Redis.from_url(
@@ -177,6 +183,7 @@ class ConnectionManager:
                 socket_timeout=cfg.socket_timeout,
                 socket_connect_timeout=cfg.socket_connect_timeout,
                 decode_responses=cfg.decode_responses,
+                ssl=cfg.ssl,
             )
         return redis.asyncio.Redis(
             host=cfg.host,
@@ -191,7 +198,8 @@ class ConnectionManager:
         )
 
     def _build_sentinel_async(self) -> redis.asyncio.Redis:
-        assert isinstance(self._config, SentinelConfig)
+        if not isinstance(self._config, SentinelConfig):
+            raise TypeError(f"Expected SentinelConfig, got {type(self._config)}")
         cfg = self._config
         sentinel = redis.asyncio.sentinel.Sentinel(
             cfg.sentinels,
@@ -211,7 +219,8 @@ class ConnectionManager:
     def _build_cluster_async(self) -> Any:
         from redis.asyncio.cluster import ClusterNode, RedisCluster
 
-        assert isinstance(self._config, ClusterConfig)
+        if not isinstance(self._config, ClusterConfig):
+            raise TypeError(f"Expected ClusterConfig, got {type(self._config)}")
         cfg = self._config
         nodes = [ClusterNode(h, p) for h, p in cfg.startup_nodes]
         return RedisCluster(
@@ -222,6 +231,7 @@ class ConnectionManager:
             socket_connect_timeout=cfg.socket_connect_timeout,
             decode_responses=cfg.decode_responses,
             ssl=cfg.ssl,
+            read_from_replicas=cfg.read_from_replicas,
         )
 
     def close(self) -> None:

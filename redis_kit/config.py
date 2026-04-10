@@ -36,7 +36,7 @@ class NamespaceConfig:
 class SentinelConfig:
     """Redis Sentinel configuration."""
 
-    sentinels: list[tuple[str, int]]
+    sentinels: tuple[tuple[str, int], ...]
     service_name: str
     db: int = 0
     password: str | None = None
@@ -47,12 +47,16 @@ class SentinelConfig:
     decode_responses: bool = False
     ssl: bool = False
 
+    def __post_init__(self) -> None:
+        if isinstance(self.sentinels, list):
+            object.__setattr__(self, "sentinels", tuple(tuple(s) for s in self.sentinels))
+
 
 @dataclass(frozen=True)
 class ClusterConfig:
     """Redis Cluster configuration."""
 
-    startup_nodes: list[tuple[str, int]]
+    startup_nodes: tuple[tuple[str, int], ...]
     password: str | None = None
     max_connections: int = 10
     socket_timeout: float = 5.0
@@ -60,3 +64,7 @@ class ClusterConfig:
     decode_responses: bool = False
     ssl: bool = False
     read_from_replicas: bool = False
+
+    def __post_init__(self) -> None:
+        if isinstance(self.startup_nodes, list):
+            object.__setattr__(self, "startup_nodes", tuple(tuple(s) for s in self.startup_nodes))
