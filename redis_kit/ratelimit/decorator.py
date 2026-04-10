@@ -5,17 +5,13 @@ import functools
 import inspect
 import re
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from redis_kit.exceptions import RateLimitExceeded
 from redis_kit.ratelimit.async_sliding_window import AsyncSlidingWindowLimiter
 from redis_kit.ratelimit.async_token_bucket import AsyncTokenBucketLimiter
 from redis_kit.ratelimit.sliding_window import SlidingWindowLimiter
 from redis_kit.ratelimit.token_bucket import TokenBucketLimiter
-
-if TYPE_CHECKING:
-    import redis
-
 
 _TIME_UNITS = {
     "second": 1,
@@ -42,7 +38,7 @@ def parse_rate_dsl(dsl: str) -> tuple[int, int]:
 
 
 def rate_limit(
-    client: redis.Redis,
+    client: Any,  # redis.Redis for sync functions, redis.asyncio.Redis for async functions
     key: str | Callable[..., str],
     limit: str,
     algorithm: str = "sliding_window",
@@ -51,7 +47,11 @@ def rate_limit(
     """Decorator to apply rate limiting to a function.
 
     Args:
-        client: Redis client instance.
+        client: Redis client instance. Pass a ``redis.Redis`` (sync) client for
+            synchronous functions and a ``redis.asyncio.Redis`` (async) client
+            for async functions.  Passing a sync client to an async function
+            will raise an error at runtime when the limiter tries to await the
+            Redis commands.
         key: Key template string (e.g. "api:{user_id}") or callable.
         limit: Rate limit DSL string (e.g. "100/minute").
         algorithm: "token_bucket" or "sliding_window".
