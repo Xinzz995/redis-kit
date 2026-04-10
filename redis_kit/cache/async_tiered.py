@@ -115,6 +115,29 @@ class AsyncTieredCache:
     def clear_local(self) -> None:
         self._l1.clear()
 
+    def bind(self, key: str) -> AsyncBoundTieredCache:
+        return AsyncBoundTieredCache(self, key)
+
     @property
     def local_size(self) -> int:
         return self._l1.size
+
+
+class AsyncBoundTieredCache:
+    """AsyncTieredCache operations bound to a specific key."""
+
+    def __init__(self, cache: AsyncTieredCache, key: str) -> None:
+        self._cache = cache
+        self._key = key
+
+    async def get(self) -> Any:
+        return await self._cache.get(self._key)
+
+    async def set(self, value: Any, ttl: str | int | None = None) -> None:
+        await self._cache.set(self._key, value, ttl=ttl)
+
+    async def delete(self) -> None:
+        await self._cache.delete(self._key)
+
+    async def ttl(self) -> int:
+        return await self._cache.ttl(self._key)

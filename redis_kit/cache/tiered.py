@@ -114,6 +114,29 @@ class TieredCache:
     def clear_local(self) -> None:
         self._l1.clear()
 
+    def bind(self, key: str) -> BoundTieredCache:
+        return BoundTieredCache(self, key)
+
     @property
     def local_size(self) -> int:
         return self._l1.size
+
+
+class BoundTieredCache:
+    """TieredCache operations bound to a specific key."""
+
+    def __init__(self, cache: TieredCache, key: str) -> None:
+        self._cache = cache
+        self._key = key
+
+    def get(self) -> Any:
+        return self._cache.get(self._key)
+
+    def set(self, value: Any, ttl: str | int | None = None) -> None:
+        self._cache.set(self._key, value, ttl=ttl)
+
+    def delete(self) -> None:
+        self._cache.delete(self._key)
+
+    def ttl(self) -> int:
+        return self._cache.ttl(self._key)

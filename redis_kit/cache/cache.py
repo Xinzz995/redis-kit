@@ -110,11 +110,13 @@ class Cache:
         full_key = self._make_key(key)
         encoded = self._pipeline.encode(value)
         resolved_ttl = self._resolve_ttl(ttl)
+        start = time.monotonic()
         if resolved_ttl is not None and resolved_ttl > 0:
             self._client.setex(full_key, resolved_ttl, encoded)
         else:
             self._client.set(full_key, encoded)
-        self._notify_hooks("after", "SET", key, result=None, duration_ms=0)
+        duration = (time.monotonic() - start) * 1000
+        self._notify_hooks("after", "SET", key, result=None, duration_ms=duration)
 
     def delete(self, key: str) -> None:
         self._client.delete(self._make_key(key))

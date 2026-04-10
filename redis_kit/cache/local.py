@@ -51,4 +51,5 @@ class LRUCache:
 
     @property
     def size(self) -> int:
-        return len(self._data)
+        with self._lock:
+            return len(self._data)
