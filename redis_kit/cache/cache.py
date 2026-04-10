@@ -183,9 +183,16 @@ class Cache:
     def delete_pattern(self, pattern: str, batch_size: int = 100) -> int:
         full_pattern = self._make_key(pattern)
         count = 0
+        batch: list[bytes | str] = []
         for key in self._client.scan_iter(match=full_pattern, count=batch_size):
-            self._client.delete(key)
-            count += 1
+            batch.append(key)
+            if len(batch) >= batch_size:
+                self._client.delete(*batch)
+                count += len(batch)
+                batch = []
+        if batch:
+            self._client.delete(*batch)
+            count += len(batch)
         return count
 
     def iter_keys(self, pattern: str, batch_size: int = 100) -> Iterator[str]:

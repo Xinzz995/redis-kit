@@ -140,7 +140,7 @@ class TestTieredCacheBatch:
         result = cache.get_many(["a", "b", "c"])
         assert result == {"a": 1, "b": 2, "c": None}
         # b should now be in L1
-        assert cache.local_size == 2  # a + b (c is negative cached or not)
+        assert cache.local_size == 3  # a + b + c (c is negative cached)
 
     def test_set_many(self):
         cache = self._make()

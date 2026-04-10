@@ -76,6 +76,8 @@ class TieredCache:
             for key, value in l2_result.items():
                 if value is not None:
                     self._l1.set(key, value)
+                else:
+                    self._l1.set(key, _NEGATIVE, ttl=self._negative_ttl)
                 result[key] = value
         return result
 

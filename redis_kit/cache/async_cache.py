@@ -169,9 +169,16 @@ class AsyncCache:
     async def delete_pattern(self, pattern: str, batch_size: int = 100) -> int:
         full_pattern = self._make_key(pattern)
         count = 0
+        batch: list[bytes | str] = []
         async for key in self._client.scan_iter(match=full_pattern, count=batch_size):
-            await self._client.delete(key)
-            count += 1
+            batch.append(key)
+            if len(batch) >= batch_size:
+                await self._client.delete(*batch)
+                count += len(batch)
+                batch = []
+        if batch:
+            await self._client.delete(*batch)
+            count += len(batch)
         return count
 
     async def iter_keys(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:
