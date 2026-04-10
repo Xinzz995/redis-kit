@@ -99,3 +99,16 @@ class TestFallbackPolicy:
     def test_default_logger(self):
         policy = FallbackPolicy()
         assert policy.logger.name == "redis_kit"
+
+    def test_callback_requires_fallback(self):
+        """FallbackPolicy with callback strategy must have a non-None fallback."""
+        with pytest.raises(ValueError, match="fallback"):
+            FallbackPolicy(on_connection_error="callback", fallback=None)
+
+    def test_callback_with_callable_is_valid(self):
+        policy = FallbackPolicy(on_connection_error="callback", fallback=lambda cmd, key, err: None)
+        assert policy.on_connection_error == "callback"
+
+    def test_raise_without_fallback_is_valid(self):
+        policy = FallbackPolicy(on_connection_error="raise")
+        assert policy.on_connection_error == "raise"
