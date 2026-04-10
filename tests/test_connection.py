@@ -1,3 +1,6 @@
+import asyncio
+from unittest.mock import AsyncMock, MagicMock
+
 import fakeredis
 import pytest
 
@@ -65,6 +68,51 @@ class TestConnectionManagerAsync:
         conn = ConnectionManager._from_clients(async_client=fakeredis.aioredis.FakeRedis())
         _ = conn.async_client
         await conn.aclose()
+
+
+class TestAcloseAllAsyncClients:
+    @pytest.mark.asyncio
+    async def test_aclose_closes_all_registered_async_clients(self):
+        """aclose() must drain every entry in _async_clients, not just the current loop's."""
+        conn = ConnectionManager()
+
+        # Fabricate two mock clients registered under two distinct fake loops.
+        mock_loop_a = MagicMock(spec=asyncio.AbstractEventLoop)
+        mock_loop_b = MagicMock(spec=asyncio.AbstractEventLoop)
+        mock_client_a = AsyncMock()
+        mock_client_b = AsyncMock()
+
+        conn._async_clients[mock_loop_a] = mock_client_a
+        conn._async_clients[mock_loop_b] = mock_client_b
+
+        await conn.aclose()
+
+        mock_client_a.aclose.assert_awaited_once()
+        mock_client_b.aclose.assert_awaited_once()
+        assert len(conn._async_clients) == 0
+
+    @pytest.mark.asyncio
+    async def test_aclose_clears_registry_even_when_client_raises(self):
+        """Registry is cleared even if one client's aclose() raises."""
+        conn = ConnectionManager()
+
+        mock_loop = MagicMock(spec=asyncio.AbstractEventLoop)
+        bad_client = AsyncMock()
+        bad_client.aclose.side_effect = RuntimeError("connection gone")
+
+        conn._async_clients[mock_loop] = bad_client
+
+        # Should not raise.
+        await conn.aclose()
+
+        assert len(conn._async_clients) == 0
+
+    @pytest.mark.asyncio
+    async def test_aclose_is_idempotent(self):
+        """Calling aclose() twice must not raise."""
+        conn = ConnectionManager._from_clients(async_client=fakeredis.aioredis.FakeRedis())
+        await conn.aclose()
+        await conn.aclose()  # second call — registry already empty
 
 
 class TestConnectionManagerTopology:

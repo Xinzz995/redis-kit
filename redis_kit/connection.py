@@ -241,11 +241,17 @@ class ConnectionManager:
             self._sync_client = None
 
     async def aclose(self) -> None:
-        """Close async client for the current event loop."""
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            return
-        client = self._async_clients.pop(loop, None)
-        if client is not None:
-            await client.aclose()
+        """Close all async clients across all event loops.
+
+        Snapshots and clears the entire _async_clients registry before
+        awaiting each client's aclose(), so callers from any loop trigger
+        a full cleanup rather than only closing their own loop's client.
+        """
+        with self._async_lock:
+            clients = list(self._async_clients.values())
+            self._async_clients.clear()
+        for client in clients:
+            try:
+                await client.aclose()
+            except Exception:
+                pass
