@@ -37,7 +37,7 @@ def apply_jitter(ttl: int, jitter: float) -> int:
     if jitter <= 0 or ttl <= 0:
         return ttl
     delta = int(ttl * jitter)
-    return ttl + random.randint(-delta, delta)
+    return max(1, ttl + random.randint(-delta, delta))
 
 
 def resolve_callable(value: Any, args: tuple, kwargs: dict) -> Any:

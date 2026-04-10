@@ -77,7 +77,10 @@ def cached(
                     cache_key = _resolve_key(args, kwargs)
                     resolved_ttl = _resolve_ttl(args, kwargs)
                     encoded = pipeline.encode(result)
-                    await client.setex(cache_key, resolved_ttl, encoded)
+                    if resolved_ttl > 0:
+                        await client.setex(cache_key, resolved_ttl, encoded)
+                    else:
+                        await client.set(cache_key, encoded)
                     return result
 
                 cache_key = _resolve_key(args, kwargs)
@@ -89,7 +92,10 @@ def cached(
                 result = await func(*args, **kwargs)
                 resolved_ttl = _resolve_ttl(args, kwargs)
                 encoded = pipeline.encode(result)
-                await client.setex(cache_key, resolved_ttl, encoded)
+                if resolved_ttl > 0:
+                    await client.setex(cache_key, resolved_ttl, encoded)
+                else:
+                    await client.set(cache_key, encoded)
                 return result
 
             return async_wrapper
@@ -102,7 +108,10 @@ def cached(
                     cache_key = _resolve_key(args, kwargs)
                     resolved_ttl = _resolve_ttl(args, kwargs)
                     encoded = pipeline.encode(result)
-                    client.setex(cache_key, resolved_ttl, encoded)
+                    if resolved_ttl > 0:
+                        client.setex(cache_key, resolved_ttl, encoded)
+                    else:
+                        client.set(cache_key, encoded)
                     return result
 
                 cache_key = _resolve_key(args, kwargs)
@@ -114,7 +123,10 @@ def cached(
                 result = func(*args, **kwargs)
                 resolved_ttl = _resolve_ttl(args, kwargs)
                 encoded = pipeline.encode(result)
-                client.setex(cache_key, resolved_ttl, encoded)
+                if resolved_ttl > 0:
+                    client.setex(cache_key, resolved_ttl, encoded)
+                else:
+                    client.set(cache_key, encoded)
                 return result
 
             return sync_wrapper

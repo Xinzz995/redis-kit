@@ -80,11 +80,15 @@ class AsyncCache:
         seconds = parse_ttl(ttl)
         return apply_jitter(seconds, self._ttl_jitter)
 
-    async def get(self, key: str) -> Any:
+    async def _get_raw(self, key: str) -> Any:
+        """Internal get returning _MISS sentinel for cache miss."""
         full_key = self._make_key(key)
         raw = await self._client.get(full_key)
-        value = self._pipeline.decode(raw)
-        return value if value is not _MISS else None
+        return self._pipeline.decode(raw)
+
+    async def get(self, key: str) -> Any:
+        value = await self._get_raw(key)
+        return None if value is _MISS else value
 
     async def set(self, key: str, value: Any, ttl: str | int | None = None) -> None:
         full_key = self._make_key(key)
@@ -119,8 +123,8 @@ class AsyncCache:
         factory: Callable[[], Any],
         ttl: str | int | None = None,
     ) -> Any:
-        value = await self.get(key)
-        if value is not None:
+        value = await self._get_raw(key)
+        if value is not _MISS:
             return value
         result = factory()
         if asyncio.iscoroutine(result):

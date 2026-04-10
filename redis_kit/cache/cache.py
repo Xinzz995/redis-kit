@@ -89,7 +89,8 @@ class Cache:
             elif phase == "error":
                 hook.on_error(command, key, kwargs.get("error", RuntimeError()))
 
-    def get(self, key: str) -> Any:
+    def _get_raw(self, key: str) -> Any:
+        """Internal get returning _MISS sentinel for cache miss."""
         full_key = self._make_key(key)
         start = time.monotonic()
         raw = self._client.get(full_key)
@@ -97,9 +98,13 @@ class Cache:
         value = self._pipeline.decode(raw)
         if value is _MISS:
             self._notify_hooks("after", "GET", key, result=None, duration_ms=duration)
-            return None
-        self._notify_hooks("after", "GET", key, result=value, duration_ms=duration)
+        else:
+            self._notify_hooks("after", "GET", key, result=value, duration_ms=duration)
         return value
+
+    def get(self, key: str) -> Any:
+        value = self._get_raw(key)
+        return None if value is _MISS else value
 
     def set(self, key: str, value: Any, ttl: str | int | None = None) -> None:
         full_key = self._make_key(key)
@@ -135,8 +140,8 @@ class Cache:
         factory: Callable[[], Any],
         ttl: str | int | None = None,
     ) -> Any:
-        value = self.get(key)
-        if value is not None:
+        value = self._get_raw(key)
+        if value is not _MISS:
             return value
         value = factory()
         self.set(key, value, ttl=ttl)

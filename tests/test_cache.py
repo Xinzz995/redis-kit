@@ -2,7 +2,7 @@ import fakeredis
 import fakeredis.aioredis
 import pytest
 
-from redis_kit.cache._logic import parse_ttl
+from redis_kit.cache._logic import apply_jitter, parse_ttl
 from redis_kit.cache.async_cache import AsyncCache
 from redis_kit.cache.cache import Cache
 
@@ -26,6 +26,21 @@ class TestParseTtl:
     def test_invalid_string(self):
         with pytest.raises(ValueError):
             parse_ttl("invalid")
+
+
+class TestApplyJitter:
+    def test_jitter_clamps_to_minimum_one(self):
+        """apply_jitter should never return less than 1."""
+        # With ttl=1 and jitter=1.0, delta=1, range is [-1, 1]
+        # Even worst case (1 + (-1) = 0) should be clamped to 1
+        results = {apply_jitter(1, 1.0) for _ in range(200)}
+        assert all(r >= 1 for r in results)
+
+    def test_jitter_no_jitter_passthrough(self):
+        assert apply_jitter(60, 0) == 60
+
+    def test_jitter_zero_ttl_passthrough(self):
+        assert apply_jitter(0, 0.5) == 0
 
 
 class TestCache:
@@ -103,6 +118,24 @@ class TestCache:
         cache.set_many({"a": 1, "b": 2}, ttl=3600)
         assert cache.get("a") == 1
         assert cache.get("b") == 2
+
+    def test_remember_caches_none_value(self):
+        """remember() should cache None from factory and not re-call factory."""
+        cache = self._make_cache()
+        call_count = 0
+
+        def factory():
+            nonlocal call_count
+            call_count += 1
+            return None
+
+        result1 = cache.remember("none_key", factory, ttl=60)
+        assert result1 is None
+        assert call_count == 1
+
+        result2 = cache.remember("none_key", factory, ttl=60)
+        assert result2 is None
+        assert call_count == 1  # factory NOT called again
 
     def test_cache_none_value(self):
         cache = self._make_cache()
@@ -195,6 +228,25 @@ class TestAsyncCache:
         assert result == {"val": 1}
         result2 = await cache.remember("key", lambda: {"val": 2}, ttl=3600)
         assert result2 == {"val": 1}
+
+    @pytest.mark.asyncio
+    async def test_remember_caches_none_value(self):
+        """remember() should cache None from factory and not re-call factory."""
+        cache = self._make_cache()
+        call_count = 0
+
+        def factory():
+            nonlocal call_count
+            call_count += 1
+            return None
+
+        result1 = await cache.remember("none_key", factory, ttl=60)
+        assert result1 is None
+        assert call_count == 1
+
+        result2 = await cache.remember("none_key", factory, ttl=60)
+        assert result2 is None
+        assert call_count == 1  # factory NOT called again
 
     @pytest.mark.asyncio
     async def test_get_many(self):

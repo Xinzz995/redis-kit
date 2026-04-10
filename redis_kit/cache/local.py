@@ -5,7 +5,7 @@ import time
 from collections import OrderedDict
 from typing import Any
 
-_MISS = object()
+from redis_kit.cache._logic import _MISS  # noqa: F401 — re-exported for tiered caches
 
 
 class LRUCache:
