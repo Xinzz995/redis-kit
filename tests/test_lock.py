@@ -1,8 +1,10 @@
+import time
+
 import fakeredis
 import fakeredis.aioredis
 import pytest
 
-from redis_kit.exceptions import LockAcquireError
+from redis_kit.exceptions import LockAcquireError, LockReleaseError
 from redis_kit.lock.async_lock import AsyncLock
 from redis_kit.lock.lock import Lock
 
@@ -46,6 +48,57 @@ class TestBasicLock:
             with lock("res-b", timeout=10):
                 assert True  # No deadlock
 
+    def test_original_exception_not_masked_by_release_failure(self):
+        """ValueError raised inside the context must propagate even when release fails."""
+        lock = Lock(self.client, prefix="test:lock")
+        with pytest.raises(ValueError, match="original"):
+            with lock("expired-resource", timeout=10):
+                # Simulate lock key expiry by deleting it before user code raises.
+                key = lock._make_key("expired-resource")
+                self.client.delete(key)
+                raise ValueError("original")
+
+    def test_lock_release_error_raised_on_clean_exit(self):
+        """LockReleaseError must still propagate when no other exception is in flight."""
+        lock = Lock(self.client, prefix="test:lock")
+        with pytest.raises(LockReleaseError):
+            with lock("clean-exit-resource", timeout=10):
+                # Delete the key so release will fail after a clean yield.
+                key = lock._make_key("clean-exit-resource")
+                self.client.delete(key)
+
+    def test_watchdog_timer_list_does_not_grow_unboundedly(self):
+        """Verify that completed timers are pruned so _timers never accumulates stale entries."""
+        lock = Lock(self.client, prefix="test:lock")
+        # Use a short timeout so the watchdog fires quickly (interval = timeout / 3).
+        timeout = 3
+        interval = timeout / 3  # ~1 s
+
+        with lock("watchdog-resource", timeout=timeout, auto_renew=True) as _:
+            # Grab a reference to the internal watchdog handle via the context manager.
+            # We can't easily reach it from outside the 'with' block, so we instrument
+            # _start_watchdog by monkey-patching just for this test.
+            pass  # placeholder – real instrumentation below
+
+        # Re-implement with direct handle access.
+        key = lock._make_key("watchdog-resource")
+        owner = "test-owner-prune"
+        # Manually set the key so extend script succeeds.
+        self.client.set(key, owner, ex=timeout)
+        handle = lock._start_watchdog(key, owner, timeout, reentrant=False)
+
+        # Wait long enough for at least two renewal cycles.
+        time.sleep(interval * 2.5)
+
+        with handle._lock:
+            timer_count = len(handle._timers)
+
+        handle.cancel()
+
+        # After pruning, at most 1 active timer should remain in the list
+        # (the one scheduled by the most recent renewal that hasn't fired yet).
+        assert timer_count <= 2, f"Expected at most 2 timers in watchdog handle after pruning, got {timer_count}"
+
 
 class TestAsyncLock:
     @pytest.fixture(autouse=True)
@@ -81,6 +134,25 @@ class TestAsyncLock:
         async with lock("a", timeout=10):
             async with lock("b", timeout=10):
                 pass
+
+    @pytest.mark.asyncio
+    async def test_original_exception_not_masked_by_release_failure(self):
+        """ValueError raised inside the context must propagate even when release fails."""
+        lock = AsyncLock(self.client, prefix="test:lock")
+        with pytest.raises(ValueError, match="original"):
+            async with lock("expired-resource", timeout=10):
+                key = lock._make_key("expired-resource")
+                await self.client.delete(key)
+                raise ValueError("original")
+
+    @pytest.mark.asyncio
+    async def test_lock_release_error_raised_on_clean_exit(self):
+        """LockReleaseError must still propagate when no other exception is in flight."""
+        lock = AsyncLock(self.client, prefix="test:lock")
+        with pytest.raises(LockReleaseError):
+            async with lock("clean-exit-resource", timeout=10):
+                key = lock._make_key("clean-exit-resource")
+                await self.client.delete(key)
 
 
 class TestReadWriteLock:

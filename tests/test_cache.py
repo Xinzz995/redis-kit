@@ -1,10 +1,15 @@
+from unittest.mock import MagicMock, patch
+
 import fakeredis
 import fakeredis.aioredis
 import pytest
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from redis_kit.cache._logic import apply_jitter, parse_ttl
 from redis_kit.cache.async_cache import AsyncCache
 from redis_kit.cache.cache import Cache
+from redis_kit.exceptions import FallbackPolicy
 
 
 class TestParseTtl:
@@ -272,3 +277,314 @@ class TestAsyncCache:
         assert await bound.ttl() > 0
         await bound.delete()
         assert await bound.get() is None
+
+
+# ---------------------------------------------------------------------------
+# Hook lifecycle tests
+# ---------------------------------------------------------------------------
+
+
+class _SpyHook:
+    """Minimal hook that records all calls."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, str]] = []  # (phase, command, key)
+        self.errors: list[Exception] = []
+
+    def before(self, command: str, key: str, args: tuple) -> None:
+        self.calls.append(("before", command, key))
+
+    def after(self, command: str, key: str, result, duration_ms: float) -> None:
+        self.calls.append(("after", command, key))
+
+    def on_error(self, command: str, key: str, error: Exception) -> None:
+        self.calls.append(("error", command, key))
+        self.errors.append(error)
+
+
+class TestCacheHooksLifecycle:
+    """Verify before/after/error hooks are called in the correct order."""
+
+    def setup_method(self):
+        self.client = fakeredis.FakeRedis(decode_responses=False)
+        self.hook = _SpyHook()
+
+    def teardown_method(self):
+        self.client.flushall()
+        self.client.close()
+
+    def _make_cache(self, **kwargs):
+        return Cache(self.client, prefix="t", ttl_jitter=0, hooks=[self.hook], **kwargs)
+
+    def test_get_calls_before_and_after(self):
+        cache = self._make_cache()
+        cache.set("k", "v")
+        self.hook.calls.clear()
+        cache.get("k")
+        phases = [c[0] for c in self.hook.calls]
+        assert phases == ["before", "after"]
+
+    def test_set_calls_before_and_after(self):
+        cache = self._make_cache()
+        cache.set("k", "v")
+        phases = [c[0] for c in self.hook.calls]
+        assert phases == ["before", "after"]
+
+    def test_delete_calls_before_and_after_hook(self):
+        cache = self._make_cache()
+        cache.set("k", "v")
+        self.hook.calls.clear()
+        cache.delete("k")
+        phases = [c[0] for c in self.hook.calls]
+        assert "before" in phases
+        assert "after" in phases
+
+    def test_get_error_calls_on_error(self):
+        cache = self._make_cache()
+        err = RedisConnectionError("down")
+        with patch.object(self.client, "get", side_effect=err):
+            # Default policy is "raise"
+            with pytest.raises(RedisConnectionError):
+                cache.get("k")
+        phases = [c[0] for c in self.hook.calls]
+        assert phases == ["before", "error"]
+        assert self.hook.errors[0] is err
+
+    def test_set_error_calls_on_error(self):
+        cache = self._make_cache()
+        err = RedisConnectionError("down")
+        with patch.object(self.client, "set", side_effect=err):
+            with pytest.raises(RedisConnectionError):
+                cache.set("k", "v")
+        phases = [c[0] for c in self.hook.calls]
+        assert phases == ["before", "error"]
+
+    def test_remember_hooks_called(self):
+        cache = self._make_cache()
+        cache.remember("k", lambda: "val", ttl=60)
+        # remember triggers _get_raw (before+after for GET) then set (before+after for SET)
+        commands = [(c[0], c[1]) for c in self.hook.calls]
+        assert ("before", "GET") in commands
+        assert ("after", "GET") in commands
+        assert ("before", "SET") in commands
+        assert ("after", "SET") in commands
+
+    def test_get_many_hooks(self):
+        cache = self._make_cache()
+        cache.set("a", 1)
+        self.hook.calls.clear()
+        cache.get_many(["a", "b"])
+        phases = [c[0] for c in self.hook.calls]
+        assert phases == ["before", "after"]
+        assert self.hook.calls[0][1] == "GET_MANY"
+
+    def test_set_many_hooks(self):
+        cache = self._make_cache()
+        cache.set_many({"a": 1, "b": 2})
+        # filter to SET_MANY only (set_many doesn't call set() internally)
+        sm_calls = [c for c in self.hook.calls if c[1] == "SET_MANY"]
+        phases = [c[0] for c in sm_calls]
+        assert phases == ["before", "after"]
+
+    def test_delete_pattern_hooks(self):
+        cache = self._make_cache()
+        cache.set("x:1", "a")
+        self.hook.calls.clear()
+        cache.delete_pattern("x:*")
+        dp_calls = [c for c in self.hook.calls if c[1] == "DELETE_PATTERN"]
+        phases = [c[0] for c in dp_calls]
+        assert phases == ["before", "after"]
+
+    def test_non_connection_error_always_reraises(self):
+        """Non-connection errors should re-raise even with return_none policy."""
+        policy = FallbackPolicy(on_connection_error="return_none")
+        cache = Cache(self.client, prefix="t", ttl_jitter=0, hooks=[self.hook], fallback_policy=policy)
+        with patch.object(self.client, "get", side_effect=ValueError("bad")):
+            with pytest.raises(ValueError, match="bad"):
+                cache.get("k")
+        phases = [c[0] for c in self.hook.calls]
+        assert "error" in phases
+
+
+class TestAsyncCacheHooksLifecycle:
+    """Verify before/after/error hooks are called in async variant."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        self.hook = _SpyHook()
+        yield
+
+    def _make_cache(self, **kwargs):
+        return AsyncCache(self.client, prefix="t", ttl_jitter=0, hooks=[self.hook], **kwargs)
+
+    @pytest.mark.asyncio
+    async def test_get_calls_before_and_after(self):
+        cache = self._make_cache()
+        await cache.set("k", "v")
+        self.hook.calls.clear()
+        await cache.get("k")
+        phases = [c[0] for c in self.hook.calls]
+        assert phases == ["before", "after"]
+
+    @pytest.mark.asyncio
+    async def test_set_calls_before_and_after(self):
+        cache = self._make_cache()
+        await cache.set("k", "v")
+        phases = [c[0] for c in self.hook.calls]
+        assert phases == ["before", "after"]
+
+    @pytest.mark.asyncio
+    async def test_get_error_calls_on_error(self):
+        cache = self._make_cache()
+        err = RedisConnectionError("down")
+        with patch.object(self.client, "get", side_effect=err):
+            with pytest.raises(RedisConnectionError):
+                await cache.get("k")
+        phases = [c[0] for c in self.hook.calls]
+        assert phases == ["before", "error"]
+        assert self.hook.errors[0] is err
+
+    @pytest.mark.asyncio
+    async def test_non_connection_error_always_reraises(self):
+        policy = FallbackPolicy(on_connection_error="return_none")
+        cache = AsyncCache(self.client, prefix="t", ttl_jitter=0, hooks=[self.hook], fallback_policy=policy)
+        with patch.object(self.client, "get", side_effect=ValueError("bad")):
+            with pytest.raises(ValueError, match="bad"):
+                await cache.get("k")
+        phases = [c[0] for c in self.hook.calls]
+        assert "error" in phases
+
+
+# ---------------------------------------------------------------------------
+# FallbackPolicy tests
+# ---------------------------------------------------------------------------
+
+
+class TestCacheFallbackPolicy:
+    """Test FallbackPolicy behavior for sync Cache."""
+
+    def setup_method(self):
+        self.client = fakeredis.FakeRedis(decode_responses=False)
+
+    def teardown_method(self):
+        self.client.flushall()
+        self.client.close()
+
+    def test_raise_policy_reraises_connection_error(self):
+        policy = FallbackPolicy(on_connection_error="raise")
+        cache = Cache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
+        with patch.object(self.client, "get", side_effect=RedisConnectionError("fail")):
+            with pytest.raises(RedisConnectionError):
+                cache.get("k")
+
+    def test_raise_policy_reraises_timeout_error(self):
+        policy = FallbackPolicy(on_connection_error="raise")
+        cache = Cache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
+        with patch.object(self.client, "get", side_effect=RedisTimeoutError("timeout")):
+            with pytest.raises(RedisTimeoutError):
+                cache.get("k")
+
+    def test_return_none_policy_get(self):
+        policy = FallbackPolicy(on_connection_error="return_none")
+        cache = Cache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
+        with patch.object(self.client, "get", side_effect=RedisConnectionError("fail")):
+            result = cache.get("k")
+        assert result is None
+
+    def test_return_none_policy_set_silently_skips(self):
+        policy = FallbackPolicy(on_connection_error="return_none")
+        cache = Cache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
+        with patch.object(self.client, "set", side_effect=RedisConnectionError("fail")):
+            # Should not raise
+            cache.set("k", "v")
+
+    def test_return_none_policy_logs_warning(self, caplog):
+        policy = FallbackPolicy(on_connection_error="return_none", log_on_fallback=True)
+        cache = Cache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
+        with patch.object(self.client, "get", side_effect=RedisConnectionError("fail")):
+            with caplog.at_level("WARNING", logger="redis_kit"):
+                cache.get("k")
+        assert "fail" in caplog.text
+
+    def test_callback_policy_invokes_fallback(self):
+        cb = MagicMock(return_value="fallback_value")
+        policy = FallbackPolicy(on_connection_error="callback", fallback=cb)
+        cache = Cache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
+        err = RedisConnectionError("fail")
+        with patch.object(self.client, "get", side_effect=err):
+            result = cache.get("k")
+        assert result == "fallback_value"
+        cb.assert_called_once_with("GET", "k", err)
+
+    def test_callback_policy_no_callback_reraises(self):
+        policy = FallbackPolicy(on_connection_error="callback", fallback=None)
+        cache = Cache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
+        with patch.object(self.client, "get", side_effect=RedisConnectionError("fail")):
+            with pytest.raises(RedisConnectionError):
+                cache.get("k")
+
+    def test_default_policy_is_raise(self):
+        """Cache with no explicit policy should re-raise connection errors."""
+        cache = Cache(self.client, prefix="t", ttl_jitter=0)
+        with patch.object(self.client, "get", side_effect=RedisConnectionError("fail")):
+            with pytest.raises(RedisConnectionError):
+                cache.get("k")
+
+    def test_return_none_with_timeout_error(self):
+        policy = FallbackPolicy(on_connection_error="return_none")
+        cache = Cache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
+        with patch.object(self.client, "get", side_effect=RedisTimeoutError("timeout")):
+            result = cache.get("k")
+        assert result is None
+
+
+class TestAsyncCacheFallbackPolicy:
+    """Test FallbackPolicy behavior for async Cache."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+        yield
+
+    @pytest.mark.asyncio
+    async def test_raise_policy_reraises(self):
+        policy = FallbackPolicy(on_connection_error="raise")
+        cache = AsyncCache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
+        with patch.object(self.client, "get", side_effect=RedisConnectionError("fail")):
+            with pytest.raises(RedisConnectionError):
+                await cache.get("k")
+
+    @pytest.mark.asyncio
+    async def test_return_none_policy_get(self):
+        policy = FallbackPolicy(on_connection_error="return_none")
+        cache = AsyncCache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
+        with patch.object(self.client, "get", side_effect=RedisConnectionError("fail")):
+            result = await cache.get("k")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_return_none_policy_set_silently_skips(self):
+        policy = FallbackPolicy(on_connection_error="return_none")
+        cache = AsyncCache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
+        with patch.object(self.client, "set", side_effect=RedisConnectionError("fail")):
+            await cache.set("k", "v")
+
+    @pytest.mark.asyncio
+    async def test_callback_policy_invokes_fallback(self):
+        cb = MagicMock(return_value="fallback_value")
+        policy = FallbackPolicy(on_connection_error="callback", fallback=cb)
+        cache = AsyncCache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
+        err = RedisConnectionError("fail")
+        with patch.object(self.client, "get", side_effect=err):
+            result = await cache.get("k")
+        assert result == "fallback_value"
+        cb.assert_called_once_with("GET", "k", err)
+
+    @pytest.mark.asyncio
+    async def test_callback_policy_no_callback_reraises(self):
+        policy = FallbackPolicy(on_connection_error="callback", fallback=None)
+        cache = AsyncCache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
+        with patch.object(self.client, "get", side_effect=RedisConnectionError("fail")):
+            with pytest.raises(RedisConnectionError):
+                await cache.get("k")

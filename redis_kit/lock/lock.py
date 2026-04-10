@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import threading
 import uuid
 from collections.abc import Iterator
@@ -21,6 +22,8 @@ from redis_kit.lock._lua import (
 
 if TYPE_CHECKING:
     import redis
+
+_logger = logging.getLogger("redis_kit")
 
 
 class _WatchdogHandle:
@@ -90,7 +93,20 @@ class Lock:
             if auto_renew:
                 renew_timer = self._start_watchdog(key, owner, timeout, reentrant)
             yield
-        finally:
+        except BaseException:
+            # An exception is already in flight — release the lock but don't mask it.
+            if renew_timer is not None:
+                renew_timer.cancel()
+            try:
+                if reentrant:
+                    self._release_reentrant(key, owner, name)
+                else:
+                    self._release_basic(key, owner, name)
+            except LockReleaseError:
+                _logger.warning("Failed to release lock '%s' while handling another exception", name)
+            raise
+        else:
+            # Normal (no-exception) path — release errors ARE propagated.
             if renew_timer is not None:
                 renew_timer.cancel()
             if reentrant:
@@ -140,6 +156,9 @@ class Lock:
             script = self._extend_reentrant_script if reentrant else self._extend_script
             result = script(keys=[key], args=[owner, timeout])
             if result:
+                # Prune completed timers before adding the new one to prevent unbounded growth.
+                with handle._lock:
+                    handle._timers = [t for t in handle._timers if t.is_alive()]
                 timer = threading.Timer(interval, renew)
                 timer.daemon = True
                 handle.add(timer)

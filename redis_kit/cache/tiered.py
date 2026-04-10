@@ -4,6 +4,7 @@ from collections.abc import Callable, Iterator
 from datetime import datetime
 from typing import Any
 
+from redis_kit.cache._logic import _MISS as _L2_MISS
 from redis_kit.cache.cache import Cache
 from redis_kit.cache.local import _MISS, LRUCache
 
@@ -30,10 +31,10 @@ class TieredCache:
             return None
         if local_val is not _MISS:
             return local_val
-        value = self._l2.get(key)
-        if value is not None:
-            self._l1.set(key, value)
-            return value
+        l2_val = self._l2._get_raw(key)
+        if l2_val is not _L2_MISS:
+            self._l1.set(key, l2_val)
+            return l2_val
         self._l1.set(key, _NEGATIVE, ttl=self._negative_ttl)
         return None
 
@@ -51,10 +52,10 @@ class TieredCache:
             pass  # Fall through to L2/factory
         elif local_val is not _MISS:
             return local_val
-        value = self._l2.get(key)
-        if value is not None:
-            self._l1.set(key, value)
-            return value
+        l2_val = self._l2._get_raw(key)
+        if l2_val is not _L2_MISS:
+            self._l1.set(key, l2_val)
+            return l2_val
         value = factory()
         self._l2.set(key, value, ttl=ttl)
         self._l1.set(key, value)

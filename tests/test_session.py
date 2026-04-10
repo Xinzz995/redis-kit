@@ -81,6 +81,21 @@ class TestSessionManager:
         with pytest.raises(SessionNotFoundError):
             mgr.refresh("nonexistent")
 
+    def test_update_on_expired_session_does_not_create_key(self):
+        """I-4: update() must not leave data in Redis when the session is gone."""
+        mgr = self._make_manager()
+        with pytest.raises(SessionNotFoundError):
+            mgr.update("ghost_session", {"key": "val"})
+        # The key must not exist after the failed update
+        assert self.client.exists("session:ghost_session") == 0
+
+    def test_refresh_on_expired_session_raises_and_no_key_created(self):
+        """I-5: refresh() must raise and must not create the key."""
+        mgr = self._make_manager()
+        with pytest.raises(SessionNotFoundError):
+            mgr.refresh("ghost_session")
+        assert self.client.exists("session:ghost_session") == 0
+
 
 class TestAsyncSessionManager:
     @pytest.fixture(autouse=True)
@@ -138,3 +153,18 @@ class TestAsyncSessionManager:
         mgr = self._make_manager()
         with pytest.raises(SessionNotFoundError):
             await mgr.update("nonexistent", {"key": "val"})
+
+    @pytest.mark.asyncio
+    async def test_update_on_expired_session_does_not_create_key(self):
+        """I-4: async update() must not leave data in Redis when session is gone."""
+        mgr = self._make_manager()
+        with pytest.raises(SessionNotFoundError):
+            await mgr.update("ghost_session", {"key": "val"})
+        assert await self.client.exists("session:ghost_session") == 0
+
+    @pytest.mark.asyncio
+    async def test_refresh_nonexistent_raises(self):
+        mgr = self._make_manager()
+        with pytest.raises(SessionNotFoundError):
+            await mgr.refresh("ghost_session")
+        assert await self.client.exists("session:ghost_session") == 0

@@ -6,7 +6,7 @@ from typing import Any
 try:
     from opentelemetry import trace
 
-    _current_span_var: contextvars.ContextVar[trace.Span | None] = contextvars.ContextVar("_otel_span", default=None)
+    _span_stack_var: contextvars.ContextVar[list[trace.Span]] = contextvars.ContextVar("_otel_span_stack")
 
     class OpenTelemetryHook:
         """Creates OpenTelemetry spans for Redis operations."""
@@ -19,22 +19,35 @@ try:
             span.set_attribute("db.system", "redis")
             span.set_attribute("db.operation", command)
             span.set_attribute("db.redis.key", key)
-            _current_span_var.set(span)
+            try:
+                stack = _span_stack_var.get()
+            except LookupError:
+                stack = []
+                _span_stack_var.set(stack)
+            stack.append(span)
 
         def after(self, command: str, key: str, result: Any, duration_ms: float) -> None:
-            span = _current_span_var.get()
-            if span is not None:
-                span.set_attribute("db.redis.duration_ms", duration_ms)
-                span.end()
-                _current_span_var.set(None)
+            try:
+                stack = _span_stack_var.get()
+            except LookupError:
+                return
+            if not stack:
+                return
+            span = stack.pop()
+            span.set_attribute("db.redis.duration_ms", duration_ms)
+            span.end()
 
         def on_error(self, command: str, key: str, error: Exception) -> None:
-            span = _current_span_var.get()
-            if span is not None:
-                span.record_exception(error)
-                span.set_status(trace.StatusCode.ERROR, str(error))
-                span.end()
-                _current_span_var.set(None)
+            try:
+                stack = _span_stack_var.get()
+            except LookupError:
+                return
+            if not stack:
+                return
+            span = stack.pop()
+            span.record_exception(error)
+            span.set_status(trace.StatusCode.ERROR, str(error))
+            span.end()
 
 except ImportError:
     pass

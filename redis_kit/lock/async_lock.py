@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -21,6 +22,8 @@ from redis_kit.lock._lua import (
 
 if TYPE_CHECKING:
     import redis.asyncio
+
+_logger = logging.getLogger("redis_kit")
 
 
 class AsyncLock:
@@ -73,7 +76,20 @@ class AsyncLock:
             if auto_renew:
                 renew_task = asyncio.create_task(self._watchdog(key, owner, timeout, reentrant))
             yield
-        finally:
+        except BaseException:
+            # An exception is already in flight — release the lock but don't mask it.
+            if renew_task is not None:
+                renew_task.cancel()
+            try:
+                if reentrant:
+                    await self._release_reentrant(key, owner, name)
+                else:
+                    await self._release_basic(key, owner, name)
+            except LockReleaseError:
+                _logger.warning("Failed to release lock '%s' while handling another exception", name)
+            raise
+        else:
+            # Normal (no-exception) path — release errors ARE propagated.
             if renew_task is not None:
                 renew_task.cancel()
             if reentrant:

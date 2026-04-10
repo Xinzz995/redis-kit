@@ -1,9 +1,10 @@
 import time
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import fakeredis
 import fakeredis.aioredis
 import pytest
+from redis.exceptions import ResponseError
 
 from redis_kit.exceptions import RedisKitError, StreamError
 from redis_kit.stream.async_consumer import AsyncStreamConsumer
@@ -155,6 +156,28 @@ class TestStreamConsumer:
         messages = list(c.listen(count=10, block=0))
         assert len(messages) == 1
 
+    def test_ensure_group_busygroup_is_silent(self):
+        """BUSYGROUP ResponseError must be swallowed (group already exists)."""
+        c = StreamConsumer(self.client, stream="test", group="g1", consumer_name="c1")
+        busygroup_err = ResponseError("BUSYGROUP Consumer Group name already exists")
+        with patch.object(self.client, "xgroup_create", side_effect=busygroup_err):
+            c.ensure_group()  # must not raise
+
+    def test_ensure_group_other_response_error_raises_stream_error(self):
+        """Non-BUSYGROUP ResponseError must be re-raised as StreamError."""
+        c = StreamConsumer(self.client, stream="test", group="g1", consumer_name="c1")
+        other_err = ResponseError("ERR some other redis error")
+        with patch.object(self.client, "xgroup_create", side_effect=other_err):
+            with pytest.raises(StreamError):
+                c.ensure_group()
+
+    def test_ensure_group_non_response_error_raises_stream_error(self):
+        """Unexpected non-ResponseError exceptions must also be wrapped as StreamError."""
+        c = StreamConsumer(self.client, stream="test", group="g1", consumer_name="c1")
+        with patch.object(self.client, "xgroup_create", side_effect=ConnectionError("network failure")):
+            with pytest.raises(StreamError):
+                c.ensure_group()
+
 
 class TestAsyncStreamProducer:
     @pytest.fixture(autouse=True)
@@ -187,6 +210,31 @@ class TestAsyncStreamConsumer:
         async for msg in c.listen(count=10, block=0):
             messages.append(msg)
         assert len(messages) == 2
+
+    @pytest.mark.asyncio
+    async def test_ensure_group_busygroup_is_silent(self):
+        """Async: BUSYGROUP ResponseError must be swallowed."""
+        c = AsyncStreamConsumer(self.client, stream="test", group="g1", consumer_name="c1")
+        busygroup_err = ResponseError("BUSYGROUP Consumer Group name already exists")
+        with patch.object(self.client, "xgroup_create", new=AsyncMock(side_effect=busygroup_err)):
+            await c.ensure_group()  # must not raise
+
+    @pytest.mark.asyncio
+    async def test_ensure_group_other_response_error_raises_stream_error(self):
+        """Async: non-BUSYGROUP ResponseError must be re-raised as StreamError."""
+        c = AsyncStreamConsumer(self.client, stream="test", group="g1", consumer_name="c1")
+        other_err = ResponseError("ERR some other redis error")
+        with patch.object(self.client, "xgroup_create", new=AsyncMock(side_effect=other_err)):
+            with pytest.raises(StreamError):
+                await c.ensure_group()
+
+    @pytest.mark.asyncio
+    async def test_ensure_group_non_response_error_raises_stream_error(self):
+        """Async: unexpected non-ResponseError must also be wrapped as StreamError."""
+        c = AsyncStreamConsumer(self.client, stream="test", group="g1", consumer_name="c1")
+        with patch.object(self.client, "xgroup_create", new=AsyncMock(side_effect=ConnectionError("network failure"))):
+            with pytest.raises(StreamError):
+                await c.ensure_group()
 
 
 class TestStreamConsumerPending:

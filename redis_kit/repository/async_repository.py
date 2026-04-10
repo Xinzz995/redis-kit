@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import logging
 import types
 import typing
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, TypeVar
 
 from redis_kit.exceptions import EntityNotFoundError, OptimisticLockError, RepositoryError
-from redis_kit.repository._lua import OPTIMISTIC_LOCK_SET
+from redis_kit.repository._lua import OPTIMISTIC_LOCK_PARTIAL_SET, OPTIMISTIC_LOCK_SET
 from redis_kit.repository.model import BaseModel
+
+logger = logging.getLogger("redis_kit")
 
 if TYPE_CHECKING:
     import redis.asyncio
@@ -26,6 +29,7 @@ class AsyncRepository:
         self._model_class = model_class
         self._prefix = prefix
         self._lock_set_script = self._client.register_script(OPTIMISTIC_LOCK_SET)
+        self._lock_partial_set_script = self._client.register_script(OPTIMISTIC_LOCK_PARTIAL_SET)
         self._index_key = f"{self._prefix}:_index" if self._prefix else "_index"
 
     def _make_key(self, entity_id: str) -> str:
@@ -57,7 +61,8 @@ class AsyncRepository:
 
         try:
             hints = typing.get_type_hints(self._model_class)
-        except Exception:
+        except (NameError, AttributeError) as exc:
+            logger.warning("Failed to resolve type hints for %s: %s", self._model_class.__name__, exc)
             hints = {}
 
         kwargs = {}
@@ -71,7 +76,14 @@ class AsyncRepository:
                 ftype = args[0] if args else ftype
 
             if raw is None or raw == "__NONE__":
-                kwargs[f.name] = None if raw == "__NONE__" else f.default
+                if raw == "__NONE__":
+                    kwargs[f.name] = None
+                elif f.default is not dataclasses.MISSING:
+                    kwargs[f.name] = f.default
+                elif f.default_factory is not dataclasses.MISSING:
+                    kwargs[f.name] = f.default_factory()
+                else:
+                    raise RepositoryError(f"Field '{f.name}' is missing from the hash and has no default value")
             elif ftype is int:
                 kwargs[f.name] = int(raw)
             elif ftype is float:
@@ -85,7 +97,7 @@ class AsyncRepository:
         return self._model_class(**kwargs)
 
     async def save(self, entity: T) -> T:
-        now = datetime.now()
+        now = datetime.now(tz=UTC)
 
         if not entity.id:
             # New entity
@@ -99,12 +111,8 @@ class AsyncRepository:
         else:
             # Update existing — atomic optimistic lock check + write
             key = self._make_key(entity.id)
-            # Save current version to history before atomic update
+            # Read current state for history (written only after lock succeeds)
             existing_data = await self._client.hgetall(key)
-            if existing_data:
-                old_entity = self._from_hash(existing_data)
-                history_json = json.dumps(self._to_hash(old_entity))
-                await self._client.lpush(self._history_key(entity.id), history_json)
 
             entity = dataclasses.replace(
                 entity,
@@ -120,6 +128,13 @@ class AsyncRepository:
             allowed = await self._lock_set_script(keys=[key], args=flat_args)
             if not allowed:
                 raise OptimisticLockError(f"Version conflict for entity '{entity.id}': expected {entity.version - 1}")
+
+            # Write history only after optimistic lock succeeds
+            if existing_data:
+                old_entity = self._from_hash(existing_data)
+                history_json = json.dumps(self._to_hash(old_entity))
+                await self._client.lpush(self._history_key(entity.id), history_json)
+
             await self._client.sadd(self._index_key, entity.id)
             return entity
 
@@ -151,16 +166,22 @@ class AsyncRepository:
         if not data:
             raise EntityNotFoundError(f"Entity '{entity_id}' not found")
         entity = self._from_hash(data)
-        now = datetime.now()
-        await self._client.hset(
-            key,
-            mapping={
-                "deleted": "1",
-                "deleted_at": now.isoformat(),
-                "version": str(entity.version + 1),
-                "updated_at": now.isoformat(),
-            },
-        )
+        now = datetime.now(tz=UTC)
+        new_version = entity.version + 1
+        flat_args: list[str] = [
+            str(entity.version),
+            "deleted",
+            "1",
+            "deleted_at",
+            now.isoformat(),
+            "version",
+            str(new_version),
+            "updated_at",
+            now.isoformat(),
+        ]
+        allowed = await self._lock_partial_set_script(keys=[key], args=flat_args)
+        if not allowed:
+            raise OptimisticLockError(f"Version conflict for entity '{entity_id}': expected {entity.version}")
 
     async def hard_delete(self, entity_id: str) -> None:
         key = self._make_key(entity_id)

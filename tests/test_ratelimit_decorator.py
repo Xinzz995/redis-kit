@@ -89,3 +89,25 @@ class TestRateLimitDecorator:
 
         result = await fn(1)
         assert result == 2
+
+    @pytest.mark.asyncio
+    async def test_async_token_bucket(self):
+        @rate_limit(self.async_client, key="async_tb:{x}", limit="3/second", algorithm="token_bucket")
+        async def fn(x: int) -> int:
+            return x * 3
+
+        result = await fn(1)
+        assert result == 3
+
+    @pytest.mark.asyncio
+    async def test_async_blocks_over_limit(self):
+        @rate_limit(self.async_client, key="async_block:{x}", limit="2/minute", algorithm="sliding_window")
+        async def fn(x: int) -> int:
+            return x
+
+        await fn(1)
+        await fn(1)
+        with pytest.raises(RateLimitExceeded) as exc_info:
+            await fn(1)
+        assert exc_info.value.result.allowed is False
+        assert exc_info.value.result.retry_after > 0

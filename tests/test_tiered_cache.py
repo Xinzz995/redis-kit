@@ -50,6 +50,19 @@ class TestTieredCacheGet:
         # L1 still has it
         assert cache.get("key") == "value"
 
+    def test_get_cached_none_value_not_treated_as_miss(self):
+        """Cached None in L2 must be returned as None, not trigger negative caching."""
+        cache = self._make(negative_ttl=60)
+        self.l2.set("key", None)
+        # First get: L1 miss, L2 hit (value is None)
+        assert cache.get("key") is None
+        # L1 should have the actual None value, not a negative marker
+        # Proof: deleting from L2 must still return None (served from L1)
+        self.l2.delete("key")
+        assert cache.get("key") is None
+        # And L2 must NOT be re-queried as a miss (no negative backfill either)
+        assert cache.local_size == 1
+
 
 class TestTieredCacheSet:
     def setup_method(self):
@@ -118,6 +131,21 @@ class TestTieredCacheRemember:
 
         result = cache.remember("user:1", factory, ttl=3600)
         assert result == {"name": "Bob"}
+        assert call_count == 0
+
+    def test_remember_cached_none_skips_factory(self):
+        """remember() must return cached None from L2 without calling factory."""
+        cache = self._make()
+        self.l2.set("key", None)
+        call_count = 0
+
+        def factory():
+            nonlocal call_count
+            call_count += 1
+            return "should-not-be-called"
+
+        result = cache.remember("key", factory, ttl=3600)
+        assert result is None
         assert call_count == 0
 
 
@@ -224,6 +252,17 @@ class TestAsyncTieredCache:
         await self.l2.set("missing", "found")
         assert await cache.get("missing") is None  # Negative cached
 
+    @pytest.mark.asyncio
+    async def test_get_cached_none_value_not_treated_as_miss(self):
+        """Cached None in L2 must be returned as None, not trigger negative caching."""
+        cache = self._make(negative_ttl=60)
+        await self.l2.set("key", None)
+        assert await cache.get("key") is None
+        # L1 should hold the None value; deleting from L2 still returns None
+        await self.l2.delete("key")
+        assert await cache.get("key") is None
+        assert cache.local_size == 1
+
 
 class TestAsyncTieredCacheFull:
     @pytest.fixture(autouse=True)
@@ -259,6 +298,22 @@ class TestAsyncTieredCacheFull:
         assert result == {"v": 1}
         result2 = await cache.remember("key", lambda: {"v": 2}, ttl=3600)
         assert result2 == {"v": 1}
+
+    @pytest.mark.asyncio
+    async def test_remember_cached_none_skips_factory(self):
+        """remember() must return cached None from L2 without calling factory."""
+        cache = self._make()
+        await self.l2.set("key", None)
+        call_count = 0
+
+        def factory():
+            nonlocal call_count
+            call_count += 1
+            return "should-not-be-called"
+
+        result = await cache.remember("key", factory, ttl=3600)
+        assert result is None
+        assert call_count == 0
 
     @pytest.mark.asyncio
     async def test_local_management(self):
