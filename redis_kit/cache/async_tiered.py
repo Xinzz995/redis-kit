@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from datetime import datetime
 from typing import Any
 
@@ -77,13 +77,14 @@ class AsyncTieredCache:
             else:
                 l2_keys.append(key)
         if l2_keys:
-            l2_result = await self._l2.get_many(l2_keys)
+            l2_result = await self._l2._get_many_raw(l2_keys)
             for key, value in l2_result.items():
-                if value is not None:
+                if value is not _L2_MISS:
                     self._l1.set(key, value)
+                    result[key] = value
                 else:
                     self._l1.set(key, _NEGATIVE, ttl=self._negative_ttl)
-                result[key] = value
+                    result[key] = None
         return result
 
     async def set_many(self, mapping: dict[str, Any], ttl: str | int | None = None) -> None:
@@ -94,6 +95,10 @@ class AsyncTieredCache:
     async def delete_pattern(self, pattern: str, batch_size: int = 100) -> int:
         self._l1.clear()
         return await self._l2.delete_pattern(pattern, batch_size=batch_size)
+
+    async def iter_keys(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:
+        async for key in self._l2.iter_keys(pattern, batch_size=batch_size):
+            yield key
 
     async def ttl(self, key: str) -> int:
         return await self._l2.ttl(key)

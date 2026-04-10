@@ -178,6 +178,17 @@ class TestTieredCacheBatch:
         assert self.l2.get("a") == 1
         assert self.l2.get("b") == 2
 
+    def test_get_many_preserves_cached_none(self):
+        """get_many should correctly backfill L1 with None (not _NEGATIVE) for cached None values."""
+        cache = self._make()
+        cache.set("null_key", None, ttl=60)
+        cache.clear_local()
+        result = cache.get_many(["null_key"])
+        assert result["null_key"] is None
+        # A subsequent single get() should also return None correctly
+        val = cache.get("null_key")
+        assert val is None
+
 
 class TestTieredCacheLocalManagement:
     def setup_method(self):

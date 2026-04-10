@@ -180,7 +180,13 @@ class Lock:
             raise LockAcquireError(f"Failed to acquire read lock '{name}': writer active")
         try:
             yield
-        finally:
+        except BaseException:
+            try:
+                self._read_release_script(keys=[key], args=[])
+            except LockReleaseError:
+                _logger.warning("Failed to release read lock '%s' while handling another exception", name)
+            raise
+        else:
             self._read_release_script(keys=[key], args=[])
 
     @contextmanager
@@ -202,5 +208,11 @@ class Lock:
 
         try:
             yield
-        finally:
+        except BaseException:
+            try:
+                self._write_release_script(keys=[writer_key], args=[owner])
+            except LockReleaseError:
+                _logger.warning("Failed to release write lock '%s' while handling another exception", name)
+            raise
+        else:
             self._write_release_script(keys=[writer_key], args=[owner])

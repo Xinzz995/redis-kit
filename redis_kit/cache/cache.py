@@ -89,12 +89,15 @@ class Cache:
 
     def _notify_hooks(self, phase: str, command: str, key: str, **kwargs: Any) -> None:
         for hook in self._hooks:
-            if phase == "before":
-                hook.before(command, key, kwargs.get("args", ()))
-            elif phase == "after":
-                hook.after(command, key, kwargs.get("result"), kwargs.get("duration_ms", 0))
-            elif phase == "error":
-                hook.on_error(command, key, kwargs.get("error", RuntimeError()))
+            try:
+                if phase == "before":
+                    hook.before(command, key, kwargs.get("args", ()))
+                elif phase == "after":
+                    hook.after(command, key, kwargs.get("result"), kwargs.get("duration_ms", 0))
+                elif phase == "error":
+                    hook.on_error(command, key, kwargs.get("error", RuntimeError()))
+            except Exception:
+                _logger.exception("Hook %s() failed for %s", phase, type(hook).__name__)
 
     def _handle_fallback(self, error: Exception, command: str, key: str, default: Any = None) -> Any:
         """Apply FallbackPolicy after hooks.on_error() has been called."""
@@ -208,6 +211,18 @@ class Cache:
             val = self._pipeline.decode(raw)
             result[key] = val if val is not _MISS else None
         self._notify_hooks("after", "GET_MANY", keys_str, result=result, duration_ms=duration)
+        return result
+
+    def _get_many_raw(self, keys: list[str]) -> dict[str, Any]:
+        """Internal get_many returning _MISS sentinel for cache misses."""
+        full_keys = [self._make_key(k) for k in keys]
+        if self._is_cluster:
+            raw_values = [self._client.get(k) for k in full_keys]
+        else:
+            raw_values = self._client.mget(full_keys)
+        result = {}
+        for key, raw in zip(keys, raw_values):
+            result[key] = self._pipeline.decode(raw)
         return result
 
     def set_many(self, mapping: dict[str, Any], ttl: str | int | None = None) -> None:

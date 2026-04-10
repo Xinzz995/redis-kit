@@ -115,6 +115,17 @@ class TestAcloseAllAsyncClients:
         await conn.aclose()  # second call — registry already empty
 
 
+class TestConnectionManagerCloseSafety:
+    def test_close_thread_safe(self):
+        """close() should acquire _sync_lock and set sync_client to None."""
+        from unittest.mock import MagicMock
+
+        mgr = ConnectionManager._from_clients(sync_client=MagicMock())
+        assert mgr._sync_client is not None
+        mgr.close()
+        assert mgr._sync_client is None
+
+
 class TestConnectionManagerTopology:
     def test_standalone_topology(self):
         conn = ConnectionManager()

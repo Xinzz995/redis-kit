@@ -239,9 +239,10 @@ class ConnectionManager:
 
     def close(self) -> None:
         """Close sync client and its connection pool."""
-        if self._sync_client is not None:
-            self._sync_client.close()
-            self._sync_client = None
+        with self._sync_lock:
+            if self._sync_client is not None:
+                self._sync_client.close()
+                self._sync_client = None
 
     async def aclose(self) -> None:
         """Close all async clients across all event loops.

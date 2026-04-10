@@ -32,6 +32,14 @@ class TestParseTtl:
         with pytest.raises(ValueError):
             parse_ttl("invalid")
 
+    def test_rejects_negative(self):
+        with pytest.raises(ValueError, match="non-negative"):
+            parse_ttl(-5)
+        with pytest.raises(ValueError, match="non-negative"):
+            parse_ttl(-1)
+        # Zero should be fine
+        assert parse_ttl(0) == 0
+
 
 class TestApplyJitter:
     def test_jitter_clamps_to_minimum_one(self):
@@ -182,6 +190,24 @@ class TestCache:
         cache.set("user:2", "b")
         keys = list(cache.iter_keys("user:*"))
         assert sorted(keys) == ["user:1", "user:2"]
+
+    def test_hook_exception_does_not_break_cache_operation(self):
+        """A misbehaving hook should not break cache get/set."""
+
+        class BrokenHook:
+            def before(self, command, key, args):
+                raise RuntimeError("hook exploded")
+
+            def after(self, command, key, result, duration_ms):
+                raise RuntimeError("hook exploded")
+
+            def on_error(self, command, key, error):
+                raise RuntimeError("hook exploded")
+
+        cache = self._make_cache(hooks=[BrokenHook()])
+        cache.set("key1", "value1", ttl=60)
+        result = cache.get("key1")
+        assert result == "value1"
 
 
 class TestAsyncCache:
@@ -517,12 +543,9 @@ class TestCacheFallbackPolicy:
         assert result == "fallback_value"
         cb.assert_called_once_with("GET", "k", err)
 
-    def test_callback_policy_no_callback_reraises(self):
-        policy = FallbackPolicy(on_connection_error="callback", fallback=None)
-        cache = Cache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
-        with patch.object(self.client, "get", side_effect=RedisConnectionError("fail")):
-            with pytest.raises(RedisConnectionError):
-                cache.get("k")
+    def test_callback_policy_no_callback_raises_at_construction(self):
+        with pytest.raises(ValueError, match="fallback"):
+            FallbackPolicy(on_connection_error="callback", fallback=None)
 
     def test_default_policy_is_raise(self):
         """Cache with no explicit policy should re-raise connection errors."""
@@ -582,9 +605,6 @@ class TestAsyncCacheFallbackPolicy:
         cb.assert_called_once_with("GET", "k", err)
 
     @pytest.mark.asyncio
-    async def test_callback_policy_no_callback_reraises(self):
-        policy = FallbackPolicy(on_connection_error="callback", fallback=None)
-        cache = AsyncCache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
-        with patch.object(self.client, "get", side_effect=RedisConnectionError("fail")):
-            with pytest.raises(RedisConnectionError):
-                await cache.get("k")
+    async def test_callback_policy_no_callback_raises_at_construction(self):
+        with pytest.raises(ValueError, match="fallback"):
+            FallbackPolicy(on_connection_error="callback", fallback=None)

@@ -91,7 +91,7 @@ class AsyncRepository:
             elif ftype is bool:
                 kwargs[f.name] = raw == "1"
             elif ftype is datetime:
-                kwargs[f.name] = datetime.fromisoformat(raw) if raw != "__NONE__" else None
+                kwargs[f.name] = datetime.fromisoformat(raw)
             else:
                 kwargs[f.name] = raw
         return self._model_class(**kwargs)
@@ -197,8 +197,23 @@ class AsyncRepository:
         entity = self._from_hash(data)
         if not entity.deleted:
             raise RepositoryError(f"Entity '{entity_id}' is not deleted")
-        await self._client.hset(key, mapping={"deleted": "0", "deleted_at": "__NONE__"})
-        return dataclasses.replace(entity, deleted=False, deleted_at=None)
+        now = datetime.now(tz=UTC)
+        new_version = entity.version + 1
+        flat_args: list[str] = [
+            str(entity.version),
+            "deleted",
+            "0",
+            "deleted_at",
+            "__NONE__",
+            "version",
+            str(new_version),
+            "updated_at",
+            now.isoformat(),
+        ]
+        allowed = await self._lock_partial_set_script(keys=[key], args=flat_args)
+        if not allowed:
+            raise OptimisticLockError(f"Version conflict for entity '{entity_id}': expected {entity.version}")
+        return dataclasses.replace(entity, deleted=False, deleted_at=None, version=new_version, updated_at=now)
 
     async def find_all(self) -> list[T]:
         ids = await self._client.smembers(self._index_key)
