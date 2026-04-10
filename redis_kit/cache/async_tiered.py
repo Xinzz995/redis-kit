@@ -5,6 +5,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
+from redis_kit.cache._logic import _MISS as _L2_MISS
 from redis_kit.cache.async_cache import AsyncCache
 from redis_kit.cache.local import _MISS, LRUCache
 
@@ -31,10 +32,10 @@ class AsyncTieredCache:
             return None
         if local_val is not _MISS:
             return local_val
-        value = await self._l2.get(key)
-        if value is not None:
-            self._l1.set(key, value)
-            return value
+        l2_val = await self._l2._get_raw(key)
+        if l2_val is not _L2_MISS:
+            self._l1.set(key, l2_val)
+            return l2_val
         self._l1.set(key, _NEGATIVE, ttl=self._negative_ttl)
         return None
 
@@ -52,10 +53,10 @@ class AsyncTieredCache:
             pass
         elif local_val is not _MISS:
             return local_val
-        value = await self._l2.get(key)
-        if value is not None:
-            self._l1.set(key, value)
-            return value
+        l2_val = await self._l2._get_raw(key)
+        if l2_val is not _L2_MISS:
+            self._l1.set(key, l2_val)
+            return l2_val
         result = factory()
         if asyncio.iscoroutine(result):
             result = await result
