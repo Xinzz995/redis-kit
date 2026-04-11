@@ -49,7 +49,7 @@ def get_user(user_id: int) -> dict:
     return db.query_user(user_id)
 
 # Token bucket algorithm
-@rate_limit(conn.sync_client, key="api:{uid}", limit="10/second", algorithm="token_bucket")
+@rate_limit(conn.async_client, key="api:{uid}", limit="10/second", algorithm="token_bucket")
 async def get_product(uid: int) -> dict:
     return await db.query_product(uid)
 ```

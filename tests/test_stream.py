@@ -1,3 +1,4 @@
+import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -46,6 +47,17 @@ class TestStreamMessage:
         msg = StreamMessage(id="1-0", data={}, stream="s", _consumer=consumer)
         with pytest.raises(StreamError, match="async_ack"):
             msg.ack()
+
+    def test_async_ack_on_sync_consumer_raises_with_sync_ack_hint(self):
+        client = fakeredis.FakeRedis(decode_responses=False)
+        consumer = StreamConsumer(client, stream="s", group="g", consumer_name="c")
+        msg = StreamMessage(id="1-0", data={}, stream="s", _consumer=consumer)
+
+        async def run():
+            await msg.async_ack()
+
+        with pytest.raises(StreamError, match="message\\.ack\\("):
+            asyncio.run(run())
 
 
 class TestStreamError:

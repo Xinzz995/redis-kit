@@ -449,6 +449,30 @@ class TestAsyncPubSub:
         await ps.listen()
         assert received == [{"val": 42}]
 
+    async def test_async_callable_object_handler_is_awaited(self, mock_client: MagicMock) -> None:
+        """Async callable objects should also be awaited."""
+        received = []
+
+        class AsyncHandler:
+            async def __call__(self, data):
+                received.append(data)
+
+        ps = AsyncPubSub(mock_client, prefix="app")
+        await ps.subscribe("async-obj", AsyncHandler())
+
+        ps._pubsub.get_message.side_effect = _make_async_get_message_side_effect(
+            ps,
+            [
+                {
+                    "type": "message",
+                    "channel": b"app:async-obj",
+                    "data": json.dumps({"val": 7}).encode(),
+                },
+            ],
+        )
+        await ps.listen()
+        assert received == [{"val": 7}]
+
     async def test_listen_passes_timeout_to_get_message(self, mock_client: MagicMock) -> None:
         """listen(timeout=N) must pass timeout=N to get_message()."""
         ps = AsyncPubSub(mock_client, prefix="app")

@@ -258,6 +258,10 @@ class Cache:
             count = 0
             batch: list[bytes | str] = []
             for key in self._client.scan_iter(match=full_pattern, count=batch_size):
+                if self._is_cluster:
+                    self._client.delete(key)
+                    count += 1
+                    continue
                 batch.append(key)
                 if len(batch) >= batch_size:
                     self._client.delete(*batch)

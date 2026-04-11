@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import fakeredis
 import fakeredis.aioredis
@@ -184,6 +184,19 @@ class TestCache:
         assert count == 2
         assert cache.get("product:1") == "c"
 
+    def test_delete_pattern_cluster_deletes_keys_individually(self):
+        client = MagicMock()
+        client.scan_iter.return_value = [b"test:cache:user:1", b"test:cache:user:2"]
+        cache = Cache(client, prefix="test:cache", ttl_jitter=0, is_cluster=True)
+
+        count = cache.delete_pattern("user:*")
+
+        assert count == 2
+        assert client.delete.call_args_list == [
+            call(b"test:cache:user:1"),
+            call(b"test:cache:user:2"),
+        ]
+
     def test_iter_keys(self):
         cache = self._make_cache()
         cache.set("user:1", "a")
@@ -303,6 +316,25 @@ class TestAsyncCache:
         assert await bound.ttl() > 0
         await bound.delete()
         assert await bound.get() is None
+
+    @pytest.mark.asyncio
+    async def test_delete_pattern_cluster_deletes_keys_individually(self):
+        async def scan_iter(*args, **kwargs):
+            for key in [b"test:cache:user:1", b"test:cache:user:2"]:
+                yield key
+
+        client = MagicMock()
+        client.scan_iter = scan_iter
+        client.delete = AsyncMock()
+        cache = AsyncCache(client, prefix="test:cache", ttl_jitter=0, is_cluster=True)
+
+        count = await cache.delete_pattern("user:*")
+
+        assert count == 2
+        assert client.delete.await_args_list == [
+            call(b"test:cache:user:1"),
+            call(b"test:cache:user:2"),
+        ]
 
 
 # ---------------------------------------------------------------------------

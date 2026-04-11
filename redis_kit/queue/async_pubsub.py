@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import asyncio
+import inspect
 import json
 import logging
 from collections.abc import Callable
@@ -61,10 +61,9 @@ class AsyncPubSub:
                     handler = self._handlers.get(lookup_key)
                     if handler:
                         data = json.loads(message["data"])
-                        if asyncio.iscoroutinefunction(handler):
-                            await handler(data)
-                        else:
-                            handler(data)
+                        result = handler(data)
+                        if inspect.isawaitable(result):
+                            await result
                 except Exception:
                     _logger.exception("Error in PubSub listener")
 

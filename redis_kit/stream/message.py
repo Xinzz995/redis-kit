@@ -27,4 +27,7 @@ class StreamMessage:
     async def async_ack(self) -> None:
         if self._consumer is None:
             raise StreamError("Cannot ack: message not associated with a consumer")
-        await self._consumer._async_ack(self.id)
+        async_ack = getattr(self._consumer, "_async_ack", None)
+        if async_ack is None:
+            raise StreamError("Use 'message.ack()' with sync consumers. StreamMessage.async_ack() is async-only.")
+        await async_ack(self.id)

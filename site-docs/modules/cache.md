@@ -67,7 +67,7 @@ def get_user(user_id: int) -> dict:
     return db.query_user(user_id)
 
 # Async (auto-detected)
-@cached(conn.sync_client, key="product:{pid}", ttl=3600)
+@cached(conn.async_client, key="product:{pid}", ttl=3600)
 async def get_product(pid: int) -> dict:
     return await db.query_product(pid)
 ```

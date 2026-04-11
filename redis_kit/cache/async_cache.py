@@ -262,6 +262,10 @@ class AsyncCache:
             count = 0
             batch: list[bytes | str] = []
             async for key in self._client.scan_iter(match=full_pattern, count=batch_size):
+                if self._is_cluster:
+                    await self._client.delete(key)
+                    count += 1
+                    continue
                 batch.append(key)
                 if len(batch) >= batch_size:
                     await self._client.delete(*batch)
