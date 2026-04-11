@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.0.1] - 2026-04-11
+
+### Fixed
+- **Stream**: `StreamMessage.async_ack()` now raises a clear `StreamError` when called on sync-consumed messages instead of leaking `AttributeError`
+- **Queue**: `AsyncPubSub.listen()` now awaits async callable objects (`async __call__`) instead of dropping unawaited coroutines
+- **Cache**: `delete_pattern()` now deletes keys one-by-one in cluster mode to avoid cross-slot multi-key `DELETE` failures
+
+### Docs
+- **Cache**: async `@cached` examples now use `conn.async_client` consistently
+- **RateLimit**: async `@rate_limit` examples now use `conn.async_client` consistently
+
+### Tests
+- Added regression coverage for sync/async stream ACK misuse, async callable PubSub handlers, and cluster-safe cache pattern deletion
+- 448 tests, 0 failures
+
 ## [1.0.0] - 2026-04-11
 
 **First stable release.** 4 rounds of code review, 444 tests, 11 modules, production-ready.
