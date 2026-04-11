@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.2] - 2026-04-11
+
+### Fixed
+- **Cache**: `parse_ttl()` now rejects TTL strings with trailing garbage instead of partially parsing them
+- **RateLimit**: `parse_rate_dsl()` now requires a complete DSL match instead of accepting trailing junk
+- **RateLimit**: `@rate_limit` now validates `algorithm` and rejects unknown values with `ValueError`
+- **Repository**: `delete()` and `restore()` now record the previous entity state in history, aligning version history with all versioned mutations
+
+### Docs
+- Synced README and Chinese/English module docs with strict TTL/DSL validation behavior
+- Clarified that repository history includes states captured before `save()`, `delete()`, and `restore()`
+
+### Tests
+- Added regression coverage for TTL trailing-garbage rejection, rate-limit DSL / algorithm validation, and repository delete/restore history
+- 453 tests, 0 failures
+
 ## [1.0.1] - 2026-04-11
 
 ### Fixed
