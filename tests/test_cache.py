@@ -32,6 +32,14 @@ class TestParseTtl:
         with pytest.raises(ValueError):
             parse_ttl("invalid")
 
+    def test_rejects_trailing_garbage(self):
+        with pytest.raises(ValueError):
+            parse_ttl("1hgarbage")
+        with pytest.raises(ValueError):
+            parse_ttl("30sfoo")
+        with pytest.raises(ValueError):
+            parse_ttl("1h 30m nope")
+
     def test_rejects_negative(self):
         with pytest.raises(ValueError, match="non-negative"):
             parse_ttl(-5)

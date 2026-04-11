@@ -26,6 +26,7 @@ cache.expire("key", 600)  # Reset TTL
 ```
 
 Supports string-format TTL: `"2h30m"`, `"1d"`, `"30s"`. Negative values raise `ValueError`.
+The full string must be valid; trailing garbage such as `"1hfoo"` also raises `ValueError`.
 
 ## Cache-Aside Pattern
 

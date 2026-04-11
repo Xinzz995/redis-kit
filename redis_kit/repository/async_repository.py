@@ -40,6 +40,10 @@ class AsyncRepository:
     def _from_hash(self, data: dict[bytes | str, bytes | str]) -> T:
         return from_hash(data, self._model_class)
 
+    async def _append_history(self, entity: T) -> None:
+        history_json = json.dumps(self._to_hash(entity))
+        await self._client.lpush(self._history_key(entity.id), history_json)
+
     async def save(self, entity: T) -> T:
         now = datetime.now(tz=UTC)
 
@@ -76,8 +80,7 @@ class AsyncRepository:
             # Write history only after optimistic lock succeeds
             if existing_data:
                 old_entity = self._from_hash(existing_data)
-                history_json = json.dumps(self._to_hash(old_entity))
-                await self._client.lpush(self._history_key(entity.id), history_json)
+                await self._append_history(old_entity)
 
             await self._client.sadd(self._index_key, entity.id)
             return entity
@@ -126,6 +129,7 @@ class AsyncRepository:
         allowed = await self._lock_partial_set_script(keys=[key], args=flat_args)
         if not allowed:
             raise OptimisticLockError(f"Version conflict for entity '{entity_id}': expected {entity.version}")
+        await self._append_history(entity)
 
     async def hard_delete(self, entity_id: str) -> None:
         key = self._make_key(entity_id)
@@ -157,6 +161,7 @@ class AsyncRepository:
         allowed = await self._lock_partial_set_script(keys=[key], args=flat_args)
         if not allowed:
             raise OptimisticLockError(f"Version conflict for entity '{entity_id}': expected {entity.version}")
+        await self._append_history(entity)
         return dataclasses.replace(entity, deleted=False, deleted_at=None, version=new_version, updated_at=now)
 
     async def find_all(self) -> list[T]:

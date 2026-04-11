@@ -222,6 +222,20 @@ class TestRepositoryHistory:
         saved = repo.save(SampleEntity(name="key", value="v1"))
         assert len(repo.get_history(saved.id)) == 0
 
+    def test_delete_and_restore_are_recorded_in_history(self):
+        repo = self._make_repo()
+        saved = repo.save(SampleEntity(name="key", value="v1"))
+
+        repo.delete(saved.id)
+        repo.restore(saved.id)
+
+        history = repo.get_history(saved.id)
+        assert len(history) == 2
+        assert history[0].deleted is True
+        assert history[0].version == 2
+        assert history[1].deleted is False
+        assert history[1].version == 1
+
 
 class TestAsyncRepository:
     @pytest.fixture(autouse=True)
@@ -270,6 +284,21 @@ class TestAsyncRepository:
         history = await repo.get_history(saved.id)
         assert len(history) == 1
         assert history[0].value == "v1"
+
+    @pytest.mark.asyncio
+    async def test_delete_and_restore_are_recorded_in_history(self):
+        repo = self._make_repo()
+        saved = await repo.save(SampleEntity(name="key", value="v1"))
+
+        await repo.delete(saved.id)
+        await repo.restore(saved.id)
+
+        history = await repo.get_history(saved.id)
+        assert len(history) == 2
+        assert history[0].deleted is True
+        assert history[0].version == 2
+        assert history[1].deleted is False
+        assert history[1].version == 1
 
 
 # ============================================================

@@ -86,6 +86,8 @@ get_user.invalidate(user_id=1)
 await get_product.invalidate(pid=42)
 ```
 
+TTL strings must be fully valid. Inputs like `"1hfoo"` raise `ValueError` instead of being partially parsed.
+
 ### Distributed Lock
 
 ```python
@@ -272,6 +274,8 @@ async def get_product(uid: int) -> dict:
     return await db.query_product(uid)
 ```
 
+The DSL must match completely, and `algorithm` must be either `"sliding_window"` or `"token_bucket"`. Invalid values raise `ValueError`.
+
 ### Tiered Cache
 
 ```python
@@ -381,7 +385,7 @@ repo.find_including_deleted(config.id)  # Still accessible
 repo.restore(config.id)             # Recovered, version+1
 
 # Version history
-history = repo.get_history(config.id)  # [v2, v1] — all previous versions
+history = repo.get_history(config.id)  # previous states from save(), delete(), and restore()
 
 # Hard delete (permanent)
 repo.hard_delete(config.id)

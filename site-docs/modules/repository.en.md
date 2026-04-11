@@ -64,7 +64,7 @@ Both `delete()` and `restore()` use optimistic locking for atomicity, automatica
 ## Version History
 
 ```python
-history = repo.get_history(config.id)  # [v2, v1] — all previous versions
+history = repo.get_history(config.id)  # previous states from save(), delete(), and restore()
 for version in history:
     print(f"v{version.version}: {version.value}")
 ```

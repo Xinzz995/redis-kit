@@ -30,6 +30,8 @@ def parse_ttl(ttl: str | int | float) -> int:
             raise ValueError(f"TTL must be non-negative, got {ttl}")
         return int(ttl)
     if isinstance(ttl, str):
+        if not re.fullmatch(r"\s*(\d+\s*[dhms]\s*)+", ttl.lower()):
+            raise ValueError(f"Invalid TTL string: '{ttl}'")
         total = 0
         for match in re.finditer(r"(\d+)\s*([dhms])", ttl.lower()):
             value, unit = int(match.group(1)), match.group(2)

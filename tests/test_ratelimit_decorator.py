@@ -26,6 +26,12 @@ class TestParseRateDsl:
         with pytest.raises(ValueError):
             parse_rate_dsl("invalid")
 
+    def test_rejects_trailing_garbage(self):
+        with pytest.raises(ValueError):
+            parse_rate_dsl("10/minute trailing")
+        with pytest.raises(ValueError):
+            parse_rate_dsl("5/hours)")
+
     def test_unknown_unit_raises(self):
         with pytest.raises(ValueError):
             parse_rate_dsl("100/fortnight")
@@ -80,6 +86,10 @@ class TestRateLimitDecorator:
             return x
 
         assert fn(1) == 1
+
+    def test_unknown_algorithm_raises(self):
+        with pytest.raises(ValueError, match="algorithm"):
+            rate_limit(self.client, key="tb:{x}", limit="3/second", algorithm="typo")
 
     @pytest.mark.asyncio
     async def test_async_function(self):

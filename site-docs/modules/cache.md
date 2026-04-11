@@ -26,6 +26,7 @@ cache.expire("key", 600)  # Reset TTL
 ```
 
 支持字符串格式的 TTL：`"2h30m"`、`"1d"`、`"30s"`。负值会抛出 `ValueError`。
+TTL 字符串必须整体合法，像 `"1hfoo"` 这类带尾随垃圾内容的值也会抛出 `ValueError`。
 
 ## Cache-Aside 模式
 

@@ -40,6 +40,10 @@ class Repository:
     def _from_hash(self, data: dict[bytes | str, bytes | str]) -> T:
         return from_hash(data, self._model_class)
 
+    def _append_history(self, entity: T) -> None:
+        history_json = json.dumps(self._to_hash(entity))
+        self._client.lpush(self._history_key(entity.id), history_json)
+
     def save(self, entity: T) -> T:
         now = datetime.now(tz=UTC)
 
@@ -76,8 +80,7 @@ class Repository:
             # Write history only after optimistic lock succeeds
             if existing_data:
                 old_entity = self._from_hash(existing_data)
-                history_json = json.dumps(self._to_hash(old_entity))
-                self._client.lpush(self._history_key(entity.id), history_json)
+                self._append_history(old_entity)
 
             self._client.sadd(self._index_key, entity.id)
             return entity
@@ -126,6 +129,7 @@ class Repository:
         allowed = self._lock_partial_set_script(keys=[key], args=flat_args)
         if not allowed:
             raise OptimisticLockError(f"Version conflict for entity '{entity_id}': expected {entity.version}")
+        self._append_history(entity)
 
     def hard_delete(self, entity_id: str) -> None:
         key = self._make_key(entity_id)
@@ -157,6 +161,7 @@ class Repository:
         allowed = self._lock_partial_set_script(keys=[key], args=flat_args)
         if not allowed:
             raise OptimisticLockError(f"Version conflict for entity '{entity_id}': expected {entity.version}")
+        self._append_history(entity)
         return dataclasses.replace(entity, deleted=False, deleted_at=None, version=new_version, updated_at=now)
 
     def find_all(self) -> list[T]:

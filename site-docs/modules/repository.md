@@ -64,7 +64,7 @@ repo.hard_delete(config.id)                  # Permanently removed
 ## 版本历史
 
 ```python
-history = repo.get_history(config.id)  # [v2, v1] — all previous versions
+history = repo.get_history(config.id)  # save()/delete()/restore() 之前的历史状态
 for version in history:
     print(f"v{version.version}: {version.value}")
 ```

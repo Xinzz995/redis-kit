@@ -55,5 +55,6 @@ async def get_product(uid: int) -> dict:
 ```
 
 Supported DSL formats: `"100/minute"`, `"10/second"`, `"1000/hour"`, `"10000/day"`.
+The DSL must match completely, and `algorithm` must be either `"sliding_window"` or `"token_bucket"`.
 
 Raises `RateLimitExceeded` exception when rejected, with a `.result` attribute.

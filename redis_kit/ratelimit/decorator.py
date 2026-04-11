@@ -27,7 +27,7 @@ _TIME_UNITS = {
 
 def parse_rate_dsl(dsl: str) -> tuple[int, int]:
     """Parse '100/minute' -> (limit=100, window_seconds=60)."""
-    match = re.match(r"(\d+)\s*/\s*(\w+)", dsl.strip())
+    match = re.fullmatch(r"\s*(\d+)\s*/\s*(\w+)\s*", dsl)
     if not match:
         raise ValueError(f"Invalid rate limit DSL: '{dsl}'")
     limit = int(match.group(1))
@@ -58,6 +58,8 @@ def rate_limit(
         prefix: Redis key prefix.
     """
     parsed_limit, window = parse_rate_dsl(limit)
+    if algorithm not in {"token_bucket", "sliding_window"}:
+        raise ValueError(f"Unknown algorithm: '{algorithm}'")
 
     def decorator(func: Callable) -> Callable:
         is_async = asyncio.iscoroutinefunction(func)
