@@ -547,6 +547,19 @@ class TestCacheFallbackPolicy:
         with pytest.raises(ValueError, match="fallback"):
             FallbackPolicy(on_connection_error="callback", fallback=None)
 
+    def test_return_none_policy_applies_to_get_many(self):
+        policy = FallbackPolicy(on_connection_error="return_none")
+        cache = Cache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
+        with patch.object(self.client, "mget", side_effect=RedisConnectionError("fail")):
+            result = cache.get_many(["a", "b"])
+        assert result == {"a": None, "b": None}
+
+    def test_return_none_policy_applies_to_set_many(self):
+        policy = FallbackPolicy(on_connection_error="return_none")
+        cache = Cache(self.client, prefix="t", ttl_jitter=0, fallback_policy=policy)
+        with patch.object(self.client, "pipeline", side_effect=RedisConnectionError("fail")):
+            cache.set_many({"a": 1}, ttl=60)  # should not raise
+
     def test_default_policy_is_raise(self):
         """Cache with no explicit policy should re-raise connection errors."""
         cache = Cache(self.client, prefix="t", ttl_jitter=0)
