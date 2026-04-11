@@ -1,6 +1,6 @@
 [project]
 name = "redis-py-kit"
-version = "0.7.2"
+version = "1.0.0"
 description = "Enterprise-grade Python Redis toolkit"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -10,7 +10,7 @@ authors = [
 ]
 keywords = ["redis", "cache", "distributed-lock", "queue", "bloom-filter", "session"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",

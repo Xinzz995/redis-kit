@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.0.0] - 2026-04-11
+
+**First stable release.** 4 rounds of code review, 444 tests, 11 modules, production-ready.
+
+### Changed
+- `Development Status` upgraded from `Beta` to `Production/Stable`
+- `CommandHook`, `Serializer`, `Compressor` protocols now exported from package root (`from redis_kit import CommandHook`)
+
+### Fixed
+- **Lock**: `write()` now checks `WRITE_RELEASE` return value and raises `LockReleaseError` on owner mismatch — previously silently discarded the signal
+- **Cache**: `get_many()` and `set_many()` now apply `FallbackPolicy` on connection errors — previously always re-raised, inconsistent with `get()`/`set()`
+- **Cache**: `@cached` decorator docstring clarifies no fallback/hooks support and `bypass` is force-refresh semantics
+- **Connection**: `close()` docstring documents TOCTOU constraint (must not be called while other threads use `sync_client`)
+
+### Refactored
+- Session `_UPDATE_SCRIPT` Lua script extracted to shared `redis_kit/session/_lua.py` — prevents sync/async silent divergence
+- `_NEGATIVE` sentinel centralized in `redis_kit/cache/_logic.py` — was duplicated in `tiered.py` and `async_tiered.py`
+- Repository `_to_hash`/`_from_hash` extracted to shared `redis_kit/repository/_hash.py` (done in 0.7.2)
+- Cache `get_many` delegates to `_get_many_raw` with unified hooks/fallback (done in 0.7.2)
+
+### Stats
+- 444 tests, 0 failures
+- 68 source files, 11 modules
+- 4 rounds of code review (0 Critical issues remaining)
+
 ## [0.7.2] - 2026-04-11
 
 ### Fixed

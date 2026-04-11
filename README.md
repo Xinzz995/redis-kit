@@ -6,6 +6,7 @@ Enterprise-grade Python Redis toolkit with sync/async dual-mode APIs.
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Docs](https://img.shields.io/badge/docs-中文%20%7C%20English-blue.svg)](https://xinzz995.github.io/redis-kit/)
+[![Status](https://img.shields.io/badge/status-Production%2FStable-brightgreen.svg)](https://pypi.org/project/redis-py-kit/)
 
 > **[中文文档](https://xinzz995.github.io/redis-kit/)** | **[English Docs](https://xinzz995.github.io/redis-kit/en/)**
 
@@ -220,7 +221,7 @@ sessions.delete(session_id)
 ### Observability
 
 ```python
-from redis_kit import Cache, MetricsCollector
+from redis_kit import Cache, MetricsCollector, CommandHook
 
 metrics = MetricsCollector()
 cache = Cache(conn.sync_client, prefix="myapp", hooks=[metrics])
@@ -235,6 +236,12 @@ from redis_kit.observability import OpenTelemetryHook
 
 hook = OpenTelemetryHook(service_name="myapp")
 cache = Cache(conn.sync_client, hooks=[hook])
+
+# Custom hook — implement the CommandHook protocol
+class LoggingHook(CommandHook):
+    def before(self, command, key, args): print(f"→ {command} {key}")
+    def after(self, command, key, result, duration_ms): print(f"← {command} {key} ({duration_ms:.1f}ms)")
+    def on_error(self, command, key, error): print(f"✗ {command} {key}: {error}")
 ```
 
 ### Rate Limiter
@@ -460,6 +467,22 @@ cache = Cache(
     serializer=MsgpackSerializer(),
     compressor=ZstdCompressor(),
 )
+```
+
+### Custom Implementations
+
+Implement the `Serializer` or `Compressor` protocol:
+
+```python
+from redis_kit import Serializer, Compressor
+
+class MySerializer(Serializer):
+    def dumps(self, value: object) -> bytes: ...
+    def loads(self, data: bytes) -> object: ...
+
+class MyCompressor(Compressor):
+    def compress(self, data: bytes) -> bytes: ...
+    def decompress(self, data: bytes) -> bytes: ...
 ```
 
 ## Exception Handling
