@@ -27,12 +27,18 @@ def cached(
 
     Automatically detects sync/async functions.
 
+    Note: Unlike ``Cache``, this decorator does not support ``FallbackPolicy``
+    or hooks. Redis connection errors will propagate directly to the caller.
+    Use ``Cache`` with ``remember()`` if you need resilience features.
+
     Args:
         client: Redis client instance.
         key: Cache key template string (e.g. "user:{user_id}") or callable.
         ttl: TTL in seconds, string format ("2h30m"), or callable.
         serializer: Custom serializer (default: JsonSerializer).
-        bypass: Callable returning True to skip cache for this call.
+        bypass: Callable returning True to force-refresh the cache for this call.
+            When bypass returns True, the cache read is skipped but the result
+            is still written back to cache (force-refresh behavior, not skip).
         prefix: Optional key prefix prepended as "{prefix}:{key}".
         ttl_jitter: TTL jitter factor (0.1 = +/- 10%).
     """
