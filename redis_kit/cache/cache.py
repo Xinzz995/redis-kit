@@ -200,7 +200,8 @@ class Cache:
             raw_result = self._get_many_raw(keys)
         except Exception as e:
             self._notify_hooks("error", "GET_MANY", keys_str, error=e)
-            raise
+            self._handle_fallback(e, "GET_MANY", keys_str, default={k: None for k in keys})
+            return {k: None for k in keys}
         duration = (time.monotonic() - start) * 1000
         result = {k: (v if v is not _MISS else None) for k, v in raw_result.items()}
         self._notify_hooks("after", "GET_MANY", keys_str, result=result, duration_ms=duration)
@@ -244,7 +245,8 @@ class Cache:
                 pipe.execute()
         except Exception as e:
             self._notify_hooks("error", "SET_MANY", keys_str, error=e)
-            raise
+            self._handle_fallback(e, "SET_MANY", keys_str)
+            return
         duration = (time.monotonic() - start) * 1000
         self._notify_hooks("after", "SET_MANY", keys_str, result=None, duration_ms=duration)
 

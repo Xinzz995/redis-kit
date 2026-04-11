@@ -5,10 +5,9 @@ from datetime import datetime
 from typing import Any
 
 from redis_kit.cache._logic import _MISS as _L2_MISS
+from redis_kit.cache._logic import _NEGATIVE
 from redis_kit.cache.cache import Cache
 from redis_kit.cache.local import _MISS, LRUCache
-
-_NEGATIVE = object()
 
 
 class TieredCache:

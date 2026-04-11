@@ -3,6 +3,7 @@
 from redis_kit.bloom import AsyncBloomFilter, BloomFilter
 from redis_kit.cache import AsyncCache, AsyncTieredCache, Cache, LRUCache, TieredCache, cached
 from redis_kit.compressors import ZlibCompressor
+from redis_kit.compressors.base import Compressor
 from redis_kit.config import ClusterConfig, ConnectionConfig, NamespaceConfig, SentinelConfig
 from redis_kit.connection import ConnectionManager
 from redis_kit.counter import AsyncCounter, AsyncIDGenerator, Counter, IDGenerator
@@ -28,7 +29,7 @@ from redis_kit.exceptions import (
     StreamError,
     TopologyConstraintError,
 )
-from redis_kit.hooks import CompositeHook
+from redis_kit.hooks import CommandHook, CompositeHook
 from redis_kit.lock import AsyncLock, Lock
 from redis_kit.observability import MetricsCollector
 from redis_kit.queue import (
@@ -49,6 +50,7 @@ from redis_kit.ratelimit import (
 )
 from redis_kit.repository import AsyncRepository, BaseModel, Repository
 from redis_kit.serializers import JsonSerializer, PickleSerializer
+from redis_kit.serializers.base import Serializer
 from redis_kit.session import AsyncSessionManager, SessionManager
 from redis_kit.stream import AsyncStreamConsumer, AsyncStreamProducer, StreamConsumer, StreamMessage, StreamProducer
 
@@ -88,11 +90,14 @@ __all__ = [
     "SessionManager",
     "AsyncSessionManager",
     # Serializers
+    "Serializer",
     "JsonSerializer",
     "PickleSerializer",
     # Compressors
+    "Compressor",
     "ZlibCompressor",
     # Hooks
+    "CommandHook",
     "CompositeHook",
     # Observability
     "MetricsCollector",

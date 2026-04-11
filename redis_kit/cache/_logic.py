@@ -11,6 +11,9 @@ from redis_kit.serializers.json import JsonSerializer
 # Sentinel for distinguishing None cache values from cache miss
 _MISS = object()
 
+# Sentinel for negative cache entries (L1 marker for L2 miss)
+_NEGATIVE = object()
+
 # Marker prefix for cached None values
 _NONE_MARKER = b"__REDIS_KIT_NONE__"
 _NONE_MARKER_STR = "__REDIS_KIT_NONE__"

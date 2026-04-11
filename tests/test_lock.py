@@ -212,6 +212,16 @@ class TestReadWriteLock:
             with lock.read("rw-mask-test", timeout=1):
                 raise ValueError("user error")
 
+    def test_write_lock_release_raises_on_owner_mismatch(self):
+        """write() should raise LockReleaseError if lock expired and another writer took it."""
+        lock = Lock(self.client, prefix="test:lock")
+        with pytest.raises(LockReleaseError):
+            with lock.write("rw-owner-test", timeout=1):
+                # Simulate lock expiry + re-acquisition by deleting the writer key
+                writer_key = lock._make_key("rw-owner-test") + ":rwlock:writer"
+                self.client.delete(writer_key)
+                # Normal exit path -- should detect owner mismatch and raise LockReleaseError
+
 
 class TestAsyncReadWriteLock:
     @pytest.fixture(autouse=True)

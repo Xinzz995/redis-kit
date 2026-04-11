@@ -131,6 +131,11 @@ class AsyncLock:
         if not result:
             raise LockReleaseError(f"Failed to release reentrant lock '{name}': not owner")
 
+    async def _release_write(self, writer_key: str, owner: str, name: str) -> None:
+        result = await self._write_release_script(keys=[writer_key], args=[owner])
+        if not result:
+            raise LockReleaseError(f"Failed to release write lock '{name}': not owner")
+
     async def _watchdog(self, key: str, owner: str, timeout: int, reentrant: bool) -> None:
         interval = timeout / 3
         script = self._extend_reentrant_script if reentrant else self._extend_script
@@ -187,9 +192,9 @@ class AsyncLock:
             yield
         except BaseException:
             try:
-                await self._write_release_script(keys=[writer_key], args=[owner])
+                await self._release_write(writer_key, owner, name)
             except LockReleaseError:
                 _logger.warning("Failed to release write lock '%s' while handling another exception", name)
             raise
         else:
-            await self._write_release_script(keys=[writer_key], args=[owner])
+            await self._release_write(writer_key, owner, name)

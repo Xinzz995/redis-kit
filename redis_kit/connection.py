@@ -238,7 +238,11 @@ class ConnectionManager:
         )
 
     def close(self) -> None:
-        """Close sync client and its connection pool."""
+        """Close sync client and its connection pool.
+
+        Must be called when no other threads are actively using ``sync_client``.
+        Concurrent access during close is not supported.
+        """
         with self._sync_lock:
             if self._sync_client is not None:
                 self._sync_client.close()

@@ -148,6 +148,11 @@ class Lock:
         if not result:
             raise LockReleaseError(f"Failed to release reentrant lock '{name}': not owner")
 
+    def _release_write(self, writer_key: str, owner: str, name: str) -> None:
+        result = self._write_release_script(keys=[writer_key], args=[owner])
+        if not result:
+            raise LockReleaseError(f"Failed to release write lock '{name}': not owner")
+
     def _start_watchdog(self, key: str, owner: str, timeout: int, reentrant: bool) -> _WatchdogHandle:
         interval = timeout / 3
         handle = _WatchdogHandle()
@@ -217,9 +222,9 @@ class Lock:
             yield
         except BaseException:
             try:
-                self._write_release_script(keys=[writer_key], args=[owner])
+                self._release_write(writer_key, owner, name)
             except LockReleaseError:
                 _logger.warning("Failed to release write lock '%s' while handling another exception", name)
             raise
         else:
-            self._write_release_script(keys=[writer_key], args=[owner])
+            self._release_write(writer_key, owner, name)

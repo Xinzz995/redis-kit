@@ -6,27 +6,10 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from redis_kit.exceptions import SessionNotFoundError
+from redis_kit.session._lua import UPDATE_SCRIPT
 
 if TYPE_CHECKING:
     import redis
-
-# Atomically update session fields only if the key already exists.
-# Returns 1 on success, 0 if the session key does not exist.
-# KEYS[1]: session key
-# ARGV[1]: TTL in seconds
-# ARGV[2..N]: interleaved field/value pairs to HSET
-_UPDATE_SCRIPT = """
-local key = KEYS[1]
-local ttl = tonumber(ARGV[1])
-if redis.call("exists", key) == 0 then
-    return 0
-end
-for i = 2, #ARGV, 2 do
-    redis.call("hset", key, ARGV[i], ARGV[i + 1])
-end
-redis.call("expire", key, ttl)
-return 1
-"""
 
 
 class SessionManager:
@@ -43,7 +26,7 @@ class SessionManager:
         self._prefix = prefix
         self._ttl = ttl
         self._id_generator = id_generator or (lambda: uuid.uuid4().hex)
-        self._update_script = self._client.register_script(_UPDATE_SCRIPT)
+        self._update_script = self._client.register_script(UPDATE_SCRIPT)
 
     def _make_key(self, session_id: str) -> str:
         return f"{self._prefix}:{session_id}"
