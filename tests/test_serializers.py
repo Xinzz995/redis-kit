@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from redis_kit.serializers import JsonSerializer, PickleSerializer
@@ -60,6 +62,15 @@ class TestPickleSerializer:
 
     def test_conforms_to_protocol(self):
         assert isinstance(self.s, Serializer)
+
+
+def test_pickle_serializer_emits_security_warning(caplog):
+    """PickleSerializer should log a security warning on instantiation."""
+    from redis_kit.serializers.pickle import PickleSerializer
+
+    with caplog.at_level(logging.WARNING, logger="redis_kit.serializers"):
+        PickleSerializer()
+    assert any("pickle" in r.message.lower() and "untrusted" in r.message.lower() for r in caplog.records)
 
 
 class TestMsgpackSerializer:
