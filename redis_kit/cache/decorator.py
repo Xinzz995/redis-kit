@@ -51,30 +51,29 @@ def cached(
         is_async = asyncio.iscoroutinefunction(func)
         sig = inspect.signature(func)
 
-        def _resolve_key(args: tuple, kwargs: dict) -> str:
-            bound_args = sig.bind(*args, **kwargs)
-            bound_args.apply_defaults()
+        def _bind(args: tuple, kwargs: dict) -> inspect.BoundArguments:
+            bound = sig.bind(*args, **kwargs)
+            bound.apply_defaults()
+            return bound
+
+        def _resolve_key(bound_args: inspect.BoundArguments) -> str:
             if callable(key):
                 raw_key = key(*bound_args.args, **bound_args.kwargs)
             else:
                 raw_key = key.format(**bound_args.arguments)
             return f"{prefix}:{raw_key}" if prefix else raw_key
 
-        def _resolve_ttl(args: tuple, kwargs: dict) -> int:
+        def _resolve_ttl(bound_args: inspect.BoundArguments) -> int:
             if callable(ttl):
-                bound_args = sig.bind(*args, **kwargs)
-                bound_args.apply_defaults()
                 raw = ttl(*bound_args.args, **bound_args.kwargs)
             else:
                 raw = ttl
             seconds = parse_ttl(raw)
             return apply_jitter(seconds, ttl_jitter)
 
-        def _should_bypass(args: tuple, kwargs: dict) -> bool:
+        def _should_bypass(bound_args: inspect.BoundArguments) -> bool:
             if bypass is None:
                 return False
-            bound_args = sig.bind(*args, **kwargs)
-            bound_args.apply_defaults()
             return bypass(*bound_args.args, **bound_args.kwargs)
 
         def _write_cache(cache_key: str, result: Any, resolved_ttl: int) -> None:
@@ -93,25 +92,26 @@ def cached(
 
         def _invalidate(*args: Any, **kwargs: Any) -> None:
             """Invalidate the cached result for the given arguments."""
-            client.delete(_resolve_key(args, kwargs))
+            client.delete(_resolve_key(_bind(args, kwargs)))
 
         async def _async_invalidate(*args: Any, **kwargs: Any) -> None:
             """Async invalidate the cached result for the given arguments."""
-            await client.delete(_resolve_key(args, kwargs))
+            await client.delete(_resolve_key(_bind(args, kwargs)))
 
         if is_async:
 
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                cache_key = _resolve_key(args, kwargs)
+                bound_args = _bind(args, kwargs)
+                cache_key = _resolve_key(bound_args)
 
-                if not _should_bypass(args, kwargs):
+                if not _should_bypass(bound_args):
                     value = pipeline.decode(await client.get(cache_key))
                     if value is not _MISS:
                         return value
 
                 result = await func(*args, **kwargs)
-                await _async_write_cache(cache_key, result, _resolve_ttl(args, kwargs))
+                await _async_write_cache(cache_key, result, _resolve_ttl(bound_args))
                 return result
 
             async_wrapper.invalidate = _async_invalidate  # type: ignore[attr-defined]
@@ -120,15 +120,16 @@ def cached(
 
             @functools.wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-                cache_key = _resolve_key(args, kwargs)
+                bound_args = _bind(args, kwargs)
+                cache_key = _resolve_key(bound_args)
 
-                if not _should_bypass(args, kwargs):
+                if not _should_bypass(bound_args):
                     value = pipeline.decode(client.get(cache_key))
                     if value is not _MISS:
                         return value
 
                 result = func(*args, **kwargs)
-                _write_cache(cache_key, result, _resolve_ttl(args, kwargs))
+                _write_cache(cache_key, result, _resolve_ttl(bound_args))
                 return result
 
             sync_wrapper.invalidate = _invalidate  # type: ignore[attr-defined]

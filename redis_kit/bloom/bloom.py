@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from redis_kit.bloom._math import get_offsets, optimal_hash_count, optimal_size
+from redis_kit.bloom._math import _get_offsets, _optimal_hash_count, _optimal_size
 
 if TYPE_CHECKING:
     import redis
@@ -21,11 +21,11 @@ class BloomFilter:
     ) -> None:
         self._client = client
         self._key = f"{prefix}:{name}"
-        self._size = optimal_size(expected_items, false_positive_rate)
-        self._hash_count = optimal_hash_count(self._size, expected_items)
+        self._size = _optimal_size(expected_items, false_positive_rate)
+        self._hash_count = _optimal_hash_count(self._size, expected_items)
 
     def _get_offsets(self, item: str) -> list[int]:
-        return get_offsets(item, self._size, self._hash_count)
+        return _get_offsets(item, self._size, self._hash_count)
 
     def add(self, item: str) -> None:
         pipe = self._client.pipeline(transaction=False)

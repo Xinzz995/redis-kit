@@ -16,14 +16,26 @@ logger = logging.getLogger("redis_kit")
 T = TypeVar("T", bound=BaseModel)
 
 
+_SENTINEL_EMPTY_HINTS: dict[str, type] = {}
+
+
 @functools.lru_cache(maxsize=64)
 def _get_type_hints(model_class: type) -> dict[str, type]:
-    """Cached version of typing.get_type_hints for model classes."""
+    """Cached version of typing.get_type_hints for model classes.
+
+    On failure, returns a non-cached empty dict so a retry can succeed
+    if the environment is fixed later.
+    """
+    return typing.get_type_hints(model_class)
+
+
+def _safe_get_type_hints(model_class: type) -> dict[str, type]:
+    """Get type hints with fallback on failure (not cached on error)."""
     try:
-        return typing.get_type_hints(model_class)
+        return _get_type_hints(model_class)
     except (NameError, AttributeError) as exc:
         logger.warning("Failed to resolve type hints for %s: %s", model_class.__name__, exc)
-        return {}
+        return _SENTINEL_EMPTY_HINTS
 
 
 def to_hash(entity: BaseModel) -> dict[str, str]:
@@ -50,7 +62,7 @@ def from_hash(data: dict[bytes | str, bytes | str], model_class: type[T]) -> T:
         val = v.decode() if isinstance(v, bytes) else v
         decoded[key] = val
 
-    hints = _get_type_hints(model_class)
+    hints = _safe_get_type_hints(model_class)
 
     kwargs = {}
     for f in dataclasses.fields(model_class):

@@ -375,12 +375,12 @@ class TestAsyncHistoryNotPolluteOnLockFailure:
 
 
 # ============================================================
-# I-1: _from_hash raises RepositoryError for missing field with no default
+# I-1: from_hash raises RepositoryError for missing field with no default
 # ============================================================
 
 
 class TestFromHashMissingFieldNoDefault:
-    """I-1: _from_hash must raise RepositoryError when field is missing and has no default."""
+    """I-1: from_hash must raise RepositoryError when field is missing and has no default."""
 
     def setup_method(self):
         self.client = fakeredis.FakeRedis(decode_responses=False)
