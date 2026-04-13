@@ -939,3 +939,29 @@ def test_find_all_cluster_mode_no_pipeline(redis_client):
     assert len(items) == 2
     names = {item.name for item in items}
     assert names == {"a", "b"}
+
+
+def test_history_capped_by_max_history(redis_client):
+    """History should be trimmed when max_history is set."""
+    from redis_kit.repository.repository import Repository
+    from redis_kit.repository.model import BaseModel
+    from dataclasses import dataclass
+
+    @dataclass
+    class Item(BaseModel):
+        name: str = ""
+
+    repo = Repository(redis_client, Item, prefix="test_maxhist", max_history=3)
+
+    item = repo.save(Item(name="v1"))
+    for i in range(2, 8):
+        item.name = f"v{i}"
+        item = repo.save(item)
+
+    # We saved 7 versions, history has previous states, but capped at 3
+    history = repo.get_history(item.id)
+    assert len(history) == 3
+    # Most recent history entries (lpush + ltrim keeps newest)
+    assert history[0].name == "v6"
+    assert history[1].name == "v5"
+    assert history[2].name == "v4"

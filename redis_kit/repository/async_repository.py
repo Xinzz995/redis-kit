@@ -20,11 +20,12 @@ T = TypeVar("T", bound=BaseModel)
 class AsyncRepository:
     """Async Redis-backed repository with CRUD, versioning, soft delete, and audit."""
 
-    def __init__(self, client: redis.asyncio.Redis, model_class: type[T], prefix: str = "", is_cluster: bool = False) -> None:
+    def __init__(self, client: redis.asyncio.Redis, model_class: type[T], prefix: str = "", is_cluster: bool = False, max_history: int | None = None) -> None:
         self._client = client
         self._model_class = model_class
         self._prefix = prefix
         self._is_cluster = is_cluster
+        self._max_history = max_history
         self._lock_set_script = self._client.register_script(OPTIMISTIC_LOCK_SET)
         self._lock_partial_set_script = self._client.register_script(OPTIMISTIC_LOCK_PARTIAL_SET)
         self._index_key = f"{self._prefix}:_index" if self._prefix else "_index"
@@ -44,6 +45,8 @@ class AsyncRepository:
     async def _append_history(self, entity: T) -> None:
         history_json = json.dumps(self._to_hash(entity))
         await self._client.lpush(self._history_key(entity.id), history_json)
+        if self._max_history is not None:
+            await self._client.ltrim(self._history_key(entity.id), 0, self._max_history - 1)
 
     async def save(self, entity: T) -> T:
         now = datetime.now(tz=UTC)
