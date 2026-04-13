@@ -9,11 +9,9 @@ from typing import TYPE_CHECKING, Any
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import TimeoutError as RedisTimeoutError
 
-from redis_kit.cache._logic import _MISS, DataPipeline, apply_jitter, parse_ttl
-from redis_kit.compressors.base import Compressor
+from redis_kit.cache._base import CacheBase
+from redis_kit.cache._logic import _MISS
 from redis_kit.exceptions import FallbackPolicy
-from redis_kit.hooks import CommandHook
-from redis_kit.serializers.base import Serializer
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -56,48 +54,8 @@ class BoundCache:
         self._cache.expire_at(self._key, when)
 
 
-class Cache:
+class Cache(CacheBase):
     """Redis cache with serialization, compression, TTL jitter, and fallback."""
-
-    def __init__(
-        self,
-        client: redis.Redis,
-        prefix: str = "",
-        serializer: Serializer | None = None,
-        compressor: Compressor | None = None,
-        ttl_jitter: float = 0.1,
-        fallback_policy: FallbackPolicy | None = None,
-        hooks: list[CommandHook] | None = None,
-        is_cluster: bool = False,
-    ) -> None:
-        self._client = client
-        self._prefix = prefix
-        self._pipeline = DataPipeline(serializer, compressor)
-        self._ttl_jitter = ttl_jitter
-        self._fallback = fallback_policy or FallbackPolicy()
-        self._hooks = hooks or []
-        self._is_cluster = is_cluster
-
-    def _make_key(self, key: str) -> str:
-        return f"{self._prefix}:{key}" if self._prefix else key
-
-    def _resolve_ttl(self, ttl: str | int | None) -> int | None:
-        if ttl is None:
-            return None
-        seconds = parse_ttl(ttl)
-        return apply_jitter(seconds, self._ttl_jitter)
-
-    def _notify_hooks(self, phase: str, command: str, key: str, **kwargs: Any) -> None:
-        for hook in self._hooks:
-            try:
-                if phase == "before":
-                    hook.before(command, key, kwargs.get("args", ()))
-                elif phase == "after":
-                    hook.after(command, key, kwargs.get("result"), kwargs.get("duration_ms", 0))
-                elif phase == "error":
-                    hook.on_error(command, key, kwargs.get("error", RuntimeError()))
-            except Exception:
-                _logger.exception("Hook %s() failed for %s", phase, type(hook).__name__)
 
     def _handle_fallback(self, error: Exception, command: str, key: str, default: Any = None) -> Any:
         """Apply FallbackPolicy after hooks.on_error() has been called."""
