@@ -50,10 +50,15 @@ class Repository:
         return from_hash(data, self._model_class)
 
     def _append_history(self, entity: T) -> None:
+        history_key = self._history_key(entity.id)
         history_json = json.dumps(self._to_hash(entity))
-        self._client.lpush(self._history_key(entity.id), history_json)
         if self._max_history is not None:
-            self._client.ltrim(self._history_key(entity.id), 0, self._max_history - 1)
+            pipe = self._client.pipeline(transaction=False)
+            pipe.lpush(history_key, history_json)
+            pipe.ltrim(history_key, 0, self._max_history - 1)
+            pipe.execute()
+        else:
+            self._client.lpush(history_key, history_json)
 
     def save(self, entity: T) -> T:
         now = datetime.now(tz=UTC)

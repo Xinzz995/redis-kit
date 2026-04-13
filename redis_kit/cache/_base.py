@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Literal
+
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from redis_kit.cache._logic import DataPipeline, apply_jitter, parse_ttl
 from redis_kit.compressors.base import Compressor
 from redis_kit.hooks import CommandHook
+from redis_kit.policy import FallbackPolicy
 from redis_kit.serializers.base import Serializer
+
+FALLBACK_ERRORS = (RedisConnectionError, RedisTimeoutError)
 
 _logger = logging.getLogger("redis_kit.cache")
 
@@ -25,8 +31,6 @@ class CacheBase:
         hooks: list[CommandHook] | None = None,
         is_cluster: bool = False,
     ) -> None:
-        from redis_kit.policy import FallbackPolicy
-
         self._client = client
         self._prefix = prefix
         self._pipeline = DataPipeline(serializer, compressor)
@@ -44,7 +48,7 @@ class CacheBase:
         seconds = parse_ttl(ttl)
         return apply_jitter(seconds, self._ttl_jitter)
 
-    def _notify_hooks(self, phase: str, command: str, key: str, **kwargs: Any) -> None:
+    def _notify_hooks(self, phase: Literal["before", "after", "error"], command: str, key: str, **kwargs: Any) -> None:
         for hook in self._hooks:
             try:
                 if phase == "before":

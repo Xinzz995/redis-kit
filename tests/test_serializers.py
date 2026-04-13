@@ -65,12 +65,18 @@ class TestPickleSerializer:
 
 
 def test_pickle_serializer_emits_security_warning(caplog):
-    """PickleSerializer should log a security warning on instantiation."""
+    """PickleSerializer should log a security warning on first instantiation."""
     from redis_kit.serializers.pickle import PickleSerializer
 
+    PickleSerializer._warned = False  # reset for test isolation
     with caplog.at_level(logging.WARNING, logger="redis_kit.serializers"):
         PickleSerializer()
     assert any("pickle" in r.message.lower() and "untrusted" in r.message.lower() for r in caplog.records)
+    # Second instantiation should NOT warn again
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="redis_kit.serializers"):
+        PickleSerializer()
+    assert not any("pickle" in r.message.lower() for r in caplog.records)
 
 
 class TestMsgpackSerializer:

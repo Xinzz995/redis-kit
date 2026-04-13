@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import json
 import uuid
@@ -50,10 +51,15 @@ class AsyncRepository:
         return from_hash(data, self._model_class)
 
     async def _append_history(self, entity: T) -> None:
+        history_key = self._history_key(entity.id)
         history_json = json.dumps(self._to_hash(entity))
-        await self._client.lpush(self._history_key(entity.id), history_json)
         if self._max_history is not None:
-            await self._client.ltrim(self._history_key(entity.id), 0, self._max_history - 1)
+            pipe = self._client.pipeline(transaction=False)
+            pipe.lpush(history_key, history_json)
+            pipe.ltrim(history_key, 0, self._max_history - 1)
+            await pipe.execute()
+        else:
+            await self._client.lpush(history_key, history_json)
 
     async def save(self, entity: T) -> T:
         now = datetime.now(tz=UTC)
@@ -187,7 +193,7 @@ class AsyncRepository:
             decoded_ids.append(eid)
 
         if self._is_cluster:
-            all_data = [await self._client.hgetall(self._make_key(eid)) for eid in decoded_ids]
+            all_data = list(await asyncio.gather(*(self._client.hgetall(self._make_key(eid)) for eid in decoded_ids)))
         else:
             pipe = self._client.pipeline(transaction=False)
             for eid in decoded_ids:

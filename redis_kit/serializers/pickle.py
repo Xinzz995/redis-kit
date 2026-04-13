@@ -17,12 +17,16 @@ class PickleSerializer:
         by trusted sources.  Never deserialize data from untrusted clients.
     """
 
+    _warned: bool = False
+
     def __init__(self, protocol: int = pickle.HIGHEST_PROTOCOL) -> None:
         self._protocol = protocol
-        _logger.warning(
-            "PickleSerializer is in use. Deserializing untrusted data with pickle "
-            "can execute arbitrary code. Only use in trusted environments."
-        )
+        if not PickleSerializer._warned:
+            PickleSerializer._warned = True
+            _logger.warning(
+                "PickleSerializer is in use. Deserializing untrusted data with pickle "
+                "can execute arbitrary code. Only use in trusted environments."
+            )
 
     def dumps(self, value: Any) -> bytes:
         return pickle.dumps(value, protocol=self._protocol)

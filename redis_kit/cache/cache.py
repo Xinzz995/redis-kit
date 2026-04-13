@@ -1,23 +1,15 @@
 from __future__ import annotations
 
-import logging
 import time
 from collections.abc import Iterator
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from redis.exceptions import ConnectionError as RedisConnectionError
-from redis.exceptions import TimeoutError as RedisTimeoutError
-
-from redis_kit.cache._base import CacheBase
+from redis_kit.cache._base import FALLBACK_ERRORS, CacheBase
 from redis_kit.cache._logic import _MISS
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-
-_FALLBACK_ERRORS = (RedisConnectionError, RedisTimeoutError)
-_logger = logging.getLogger("redis_kit.cache")
 
 
 class BoundCache:
@@ -57,7 +49,7 @@ class Cache(CacheBase):
 
     def _handle_fallback(self, error: Exception, command: str, key: str, default: Any = None) -> Any:
         """Apply FallbackPolicy after hooks.on_error() has been called."""
-        if not isinstance(error, _FALLBACK_ERRORS):
+        if not isinstance(error, FALLBACK_ERRORS):
             raise error
         policy = self._fallback.on_connection_error
         if policy == "raise":
