@@ -1,6 +1,6 @@
 [project]
 name = "redis-py-kit"
-version = "1.0.3"
+version = "1.0.4"
 description = "Enterprise-grade Python Redis toolkit"
 readme = "README.md"
 requires-python = ">=3.11"
