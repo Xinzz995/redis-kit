@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.0.3] - 2026-04-13
+
+### 修复
+- **Cache**: `AsyncCache._handle_fallback` 现在正确 `await` 异步回调函数，而非静默丢弃协程
+- **Cache**: `parse_ttl("0s")` 现在返回 0，与 `parse_ttl(0)` 行为一致
+- **Connection**: `ConnectionManager._from_clients()` 不再创建并泄漏未关闭的事件循环
+- **PubSub**: `listen()`/`stop()` 使用 `threading.Event` 替代裸布尔值，确保线程安全信号传递
+- **Repository**: `save()` 新建实体时使用 `pipeline(transaction=True)` 确保 `hset` + `sadd` 原子性
+- **Serializers**: `PickleSerializer` 实例化时发出安全警告日志，提醒不可反序列化不受信任的数据
+
+### 新增
+- **Cache**: `@cached` 装饰器新增 `compressor` 参数，与 `Cache` 编码格式兼容
+- **Repository**: 新增 `is_cluster` 参数，`find_all()` 在 Cluster 模式下降级为逐个 `hgetall`，避免 CROSSSLOT 错误
+- **Repository**: 新增 `max_history` 参数，通过 `ltrim` 限制版本历史列表增长
+
+### 重构
+- **Cache**: 提取 `CacheBase` 基类至 `redis_kit/cache/_base.py`，消除 `Cache`/`AsyncCache` 约 90 行重复代码
+- **Exceptions**: `FallbackPolicy` 迁移至独立的 `redis_kit/policy.py`（`redis_kit.exceptions` 保留向后兼容 re-export）
+
+### 杂项
+- 添加 PEP 561 `py.typed` 标记文件
+- `.gitignore` 补充 `.pytest_cache/`、`.mypy_cache/`、`.ruff_cache/`
+
+### 统计
+- 463 tests，0 failures
+
 ## [1.0.2] - 2026-04-11
 
 ### Fixed
