@@ -732,3 +732,35 @@ class TestAsyncCacheEdgeCases:
     async def test_set_many_empty_mapping(self):
         cache = self._make_cache()
         await cache.set_many({}, ttl=60)
+
+
+@pytest.mark.asyncio
+async def test_async_cache_fallback_callback_awaits_async(async_redis_client):
+    """AsyncCache with callback fallback should await async callables."""
+    from redis_kit.cache.async_cache import AsyncCache
+    from redis_kit.exceptions import FallbackPolicy
+    from redis.exceptions import ConnectionError as RedisConnectionError
+
+    call_log = []
+
+    async def async_fallback(command, key, error):
+        call_log.append(("called", command, key))
+        return "fallback_value"
+
+    policy = FallbackPolicy(on_connection_error="callback", fallback=async_fallback)
+    cache = AsyncCache(async_redis_client, prefix="test", fallback_policy=policy)
+
+    # Simulate connection error
+    original_get = async_redis_client.get
+
+    async def failing_get(*a, **kw):
+        raise RedisConnectionError("simulated")
+
+    async_redis_client.get = failing_get
+    try:
+        result = await cache.get("some_key")
+        assert result == "fallback_value"
+        assert len(call_log) == 1
+        assert call_log[0] == ("called", "GET", "some_key")
+    finally:
+        async_redis_client.get = original_get

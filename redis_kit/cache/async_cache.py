@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import time
 from collections.abc import AsyncIterator
@@ -100,7 +101,7 @@ class AsyncCache:
             except Exception:
                 _logger.exception("Hook %s() failed for %s", phase, type(hook).__name__)
 
-    def _handle_fallback(self, error: Exception, command: str, key: str, default: Any = None) -> Any:
+    async def _handle_fallback(self, error: Exception, command: str, key: str, default: Any = None) -> Any:
         """Apply FallbackPolicy after hooks.on_error() has been called."""
         if not isinstance(error, _FALLBACK_ERRORS):
             raise error
@@ -113,7 +114,10 @@ class AsyncCache:
             return default
         if policy == "callback":
             if self._fallback.fallback is not None:
-                return self._fallback.fallback(command, key, error)
+                result = self._fallback.fallback(command, key, error)
+                if inspect.isawaitable(result):
+                    return await result
+                return result
             raise error
         raise error  # pragma: no cover
 
@@ -126,7 +130,7 @@ class AsyncCache:
             raw = await self._client.get(full_key)
         except Exception as e:
             self._notify_hooks("error", "GET", key, error=e)
-            return self._handle_fallback(e, "GET", key, default=_MISS)
+            return await self._handle_fallback(e, "GET", key, default=_MISS)
         duration = (time.monotonic() - start) * 1000
         value = self._pipeline.decode(raw)
         self._notify_hooks("after", "GET", key, result=value if value is not _MISS else None, duration_ms=duration)
@@ -149,7 +153,7 @@ class AsyncCache:
                 await self._client.set(full_key, encoded)
         except Exception as e:
             self._notify_hooks("error", "SET", key, error=e)
-            self._handle_fallback(e, "SET", key)
+            await self._handle_fallback(e, "SET", key)
             return
         duration = (time.monotonic() - start) * 1000
         self._notify_hooks("after", "SET", key, result=None, duration_ms=duration)
@@ -204,7 +208,7 @@ class AsyncCache:
             raw_result = await self._get_many_raw(keys)
         except Exception as e:
             self._notify_hooks("error", "GET_MANY", keys_str, error=e)
-            self._handle_fallback(e, "GET_MANY", keys_str, default={k: None for k in keys})
+            await self._handle_fallback(e, "GET_MANY", keys_str, default={k: None for k in keys})
             return {k: None for k in keys}
         duration = (time.monotonic() - start) * 1000
         result = {k: (v if v is not _MISS else None) for k, v in raw_result.items()}
@@ -249,7 +253,7 @@ class AsyncCache:
                 await pipe.execute()
         except Exception as e:
             self._notify_hooks("error", "SET_MANY", keys_str, error=e)
-            self._handle_fallback(e, "SET_MANY", keys_str)
+            await self._handle_fallback(e, "SET_MANY", keys_str)
             return
         duration = (time.monotonic() - start) * 1000
         self._notify_hooks("after", "SET_MANY", keys_str, result=None, duration_ms=duration)
