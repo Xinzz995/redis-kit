@@ -2,6 +2,17 @@ import fakeredis
 import pytest
 
 
+def pytest_ignore_collect(collection_path, config):
+    """Exclude integration tests by default. Run with: pytest tests/integration/"""
+    if "integration" in str(collection_path):
+        # Only collect integration tests if explicitly targeted
+        args = config.invocation_params.args
+        if any("integration" in str(a) for a in args):
+            return False
+        return True
+    return False
+
+
 @pytest.fixture
 def redis_client():
     """Provide a fresh fakeredis client for each test."""

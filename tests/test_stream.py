@@ -276,7 +276,6 @@ class TestStreamConsumerPending:
         assert len(pending) == 2
         assert all(entry["consumer"] == "c1" for entry in pending)
 
-    @pytest.mark.skip(reason="fakeredis does not support XAUTOCLAIM")
     def test_claim_stale_transfers_messages(self):
         p = StreamProducer(self.client, stream="test_claim")
         c1 = StreamConsumer(self.client, stream="test_claim", group="grp", consumer_name="c1", auto_ack=False)
