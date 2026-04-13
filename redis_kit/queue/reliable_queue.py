@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import json
-import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from redis_kit.exceptions import QueueEmptyError
-from redis_kit.queue._lua import NACK_SCRIPT
+from redis_kit.queue._base import ReliableQueueBase
 
 if TYPE_CHECKING:
-    import redis
+    pass
 
 
 @dataclass
@@ -28,19 +27,11 @@ class Message:
         self._queue._nack(self._raw, self.id, self.data)
 
 
-class ReliableQueue:
+class ReliableQueue(ReliableQueueBase):
     """Redis-backed reliable queue with ack/nack support."""
 
-    def __init__(self, client: redis.Redis, name: str, prefix: str = "") -> None:
-        self._client = client
-        base = f"{prefix}:{name}" if prefix else name
-        self._queue_key = f"{base}:queue"
-        self._processing_key = f"{base}:processing"
-        self._nack_script = self._client.register_script(NACK_SCRIPT)
-
     def put(self, data: Any) -> None:
-        msg_id = uuid.uuid4().hex[:12]
-        payload = json.dumps({"id": msg_id, "data": data}).encode("utf-8")
+        payload = self._encode_message(data)
         self._client.lpush(self._queue_key, payload)
 
     def get(self, timeout: int = 0) -> Message:

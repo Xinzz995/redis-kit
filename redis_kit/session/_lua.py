@@ -13,8 +13,12 @@ local ttl = tonumber(ARGV[1])
 if redis.call("exists", key) == 0 then
     return 0
 end
-for i = 2, #ARGV, 2 do
-    redis.call("hset", key, ARGV[i], ARGV[i + 1])
+local field_args = {}
+for i = 2, #ARGV do
+    table.insert(field_args, ARGV[i])
+end
+if #field_args > 0 then
+    redis.call("hset", key, unpack(field_args))
 end
 redis.call("expire", key, ttl)
 return 1

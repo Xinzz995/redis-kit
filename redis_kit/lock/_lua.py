@@ -16,8 +16,7 @@ local owner = ARGV[1]
 local timeout = tonumber(ARGV[2])
 local current = redis.call("hget", key, "owner")
 if current == false then
-    redis.call("hset", key, "owner", owner)
-    redis.call("hset", key, "count", 1)
+    redis.call("hset", key, "owner", owner, "count", 1)
     redis.call("expire", key, timeout)
     return 1
 elseif current == owner then

@@ -24,10 +24,12 @@ _TIME_UNITS = {
     "days": 86400,
 }
 
+_RATE_DSL_RE = re.compile(r"\s*(\d+)\s*/\s*(\w+)\s*")
+
 
 def parse_rate_dsl(dsl: str) -> tuple[int, int]:
     """Parse '100/minute' -> (limit=100, window_seconds=60)."""
-    match = re.fullmatch(r"\s*(\d+)\s*/\s*(\w+)\s*", dsl)
+    match = _RATE_DSL_RE.fullmatch(dsl)
     if not match:
         raise ValueError(f"Invalid rate limit DSL: '{dsl}'")
     limit = int(match.group(1))

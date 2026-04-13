@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from redis_kit.counter._base import CounterBase, IDGeneratorBase
+
 if TYPE_CHECKING:
     import redis.asyncio
 
@@ -28,15 +30,8 @@ class AsyncBoundCounter:
         await self._client.delete(self._key)
 
 
-class AsyncCounter:
+class AsyncCounter(CounterBase):
     """Async Redis-backed counter with transparent key prefixing."""
-
-    def __init__(self, client: redis.asyncio.Redis, prefix: str = "") -> None:
-        self._client = client
-        self._prefix = prefix
-
-    def _make_key(self, name: str) -> str:
-        return f"{self._prefix}:{name}" if self._prefix else name
 
     async def incr(self, name: str, amount: int = 1) -> int:
         return await self._client.incrby(self._make_key(name), amount)
@@ -56,26 +51,11 @@ class AsyncCounter:
         return AsyncBoundCounter(self._client, self._make_key(name))
 
 
-class AsyncIDGenerator:
+class AsyncIDGenerator(IDGeneratorBase):
     """Async Redis-backed atomic ID generator."""
-
-    def __init__(
-        self,
-        client: redis.asyncio.Redis,
-        name: str,
-        prefix: str = "",
-        padding: int = 0,
-        key_prefix: str = "redis_kit:id",
-    ) -> None:
-        self._client = client
-        self._key = f"{key_prefix}:{name}"
-        self._prefix = prefix
-        self._padding = padding
 
     async def next(self) -> int:
         return await self._client.incr(self._key)
 
     async def next_str(self) -> str:
-        val = await self.next()
-        padded = str(val).zfill(self._padding) if self._padding else str(val)
-        return f"{self._prefix}{padded}" if self._prefix else padded
+        return self._format_id(await self.next())

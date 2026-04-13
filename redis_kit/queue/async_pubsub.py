@@ -6,24 +6,22 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from redis_kit.queue._base import PubSubBase
+
 if TYPE_CHECKING:
     import redis.asyncio
 
 _logger = logging.getLogger("redis_kit")
+_MSG_TYPES = frozenset({"message", "pmessage"})
 
 
-class AsyncPubSub:
+class AsyncPubSub(PubSubBase):
     """Async Redis PubSub wrapper with serialization and prefix support."""
 
     def __init__(self, client: redis.asyncio.Redis, prefix: str = "") -> None:
-        self._client = client
-        self._prefix = prefix
+        super().__init__(client, prefix)
         self._pubsub = client.pubsub()
-        self._handlers: dict[str, Callable] = {}
         self._running: bool = True
-
-    def _make_channel(self, channel: str) -> str:
-        return f"{self._prefix}:{channel}" if self._prefix else channel
 
     async def publish(self, channel: str, data: Any) -> int:
         payload = json.dumps(data).encode("utf-8")
@@ -50,7 +48,7 @@ class AsyncPubSub:
             message = await self._pubsub.get_message(ignore_subscribe_messages=True, timeout=timeout or 0.1)
             if message is None:
                 continue
-            if message["type"] in ("message", "pmessage"):
+            if message["type"] in _MSG_TYPES:
                 try:
                     if message["type"] == "pmessage":
                         lookup_key = message.get("pattern", b"")

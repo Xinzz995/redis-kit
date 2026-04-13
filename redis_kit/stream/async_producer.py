@@ -2,23 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from redis_kit.stream._base import StreamProducerBase
+
 if TYPE_CHECKING:
-    import redis.asyncio
+    pass
 
 
-class AsyncStreamProducer:
+class AsyncStreamProducer(StreamProducerBase):
     """Async producer for Redis Streams."""
-
-    def __init__(
-        self,
-        client: redis.asyncio.Redis,
-        stream: str,
-        prefix: str = "",
-        maxlen: int | None = None,
-    ) -> None:
-        self._client = client
-        self._stream = f"{prefix}:{stream}" if prefix else stream
-        self._maxlen = maxlen
 
     async def add(self, data: dict[str, str], msg_id: str = "*") -> str:
         result = await self._client.xadd(

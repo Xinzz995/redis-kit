@@ -7,41 +7,18 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, TypeVar
 
 from redis_kit.exceptions import EntityNotFoundError, OptimisticLockError, RepositoryError
+from redis_kit.repository._base_repo import RepositoryBase
 from redis_kit.repository._hash import _NONE_SENTINEL, from_hash, to_hash
-from redis_kit.repository._lua import OPTIMISTIC_LOCK_PARTIAL_SET, OPTIMISTIC_LOCK_SET
 from redis_kit.repository.model import BaseModel
 
 if TYPE_CHECKING:
-    import redis
+    pass
 
 T = TypeVar("T", bound=BaseModel)
 
 
-class Repository:
+class Repository(RepositoryBase):
     """Redis-backed repository with CRUD, versioning, soft delete, and audit."""
-
-    def __init__(
-        self,
-        client: redis.Redis,
-        model_class: type[T],
-        prefix: str = "",
-        is_cluster: bool = False,
-        max_history: int | None = None,
-    ) -> None:
-        self._client = client
-        self._model_class = model_class
-        self._prefix = prefix
-        self._is_cluster = is_cluster
-        self._max_history = max_history
-        self._lock_set_script = self._client.register_script(OPTIMISTIC_LOCK_SET)
-        self._lock_partial_set_script = self._client.register_script(OPTIMISTIC_LOCK_PARTIAL_SET)
-        self._index_key = f"{self._prefix}:_index" if self._prefix else "_index"
-
-    def _make_key(self, entity_id: str) -> str:
-        return f"{self._prefix}:{entity_id}" if self._prefix else entity_id
-
-    def _history_key(self, entity_id: str) -> str:
-        return f"{self._make_key(entity_id)}:history"
 
     def _append_history(self, entity: T) -> None:
         history_key = self._history_key(entity.id)
@@ -69,9 +46,6 @@ class Repository:
         else:
             # Update existing — atomic optimistic lock check + write
             key = self._make_key(entity.id)
-            # Read current state for history (written only after lock succeeds)
-            existing_data = self._client.hgetall(key)
-
             entity = dataclasses.replace(
                 entity,
                 version=entity.version + 1,
@@ -83,16 +57,17 @@ class Repository:
             for field_name, value in hash_data.items():
                 flat_args.append(field_name)
                 flat_args.append(value)
-            allowed = self._lock_set_script(keys=[key], args=flat_args)
-            if not allowed:
+            # Lua returns 0 on conflict, or old hash data as flat list
+            result = self._lock_set_script(keys=[key], args=flat_args)
+            if result == 0:
                 raise OptimisticLockError(f"Version conflict for entity '{entity.id}': expected {entity.version - 1}")
 
-            # Write history only after optimistic lock succeeds
-            if existing_data:
+            # Write history from atomically-read old data
+            if result:
+                existing_data = {result[i]: result[i + 1] for i in range(0, len(result), 2)}
                 old_entity = from_hash(existing_data, self._model_class)
                 self._append_history(old_entity)
 
-            self._client.sadd(self._index_key, entity.id)
             return entity
 
         key = self._make_key(entity.id)

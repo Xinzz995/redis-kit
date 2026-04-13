@@ -1,35 +1,17 @@
 from __future__ import annotations
 
 import json
-import uuid
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from redis_kit.exceptions import SessionNotFoundError
-from redis_kit.session._lua import UPDATE_SCRIPT
+from redis_kit.session._base import SessionManagerBase
 
 if TYPE_CHECKING:
-    import redis
+    pass
 
 
-class SessionManager:
+class SessionManager(SessionManagerBase):
     """Redis-backed session management using Hash per session."""
-
-    def __init__(
-        self,
-        client: redis.Redis,
-        prefix: str = "session",
-        ttl: int = 1800,
-        id_generator: Callable[[], str] | None = None,
-    ) -> None:
-        self._client = client
-        self._prefix = prefix
-        self._ttl = ttl
-        self._id_generator = id_generator or (lambda: uuid.uuid4().hex)
-        self._update_script = self._client.register_script(UPDATE_SCRIPT)
-
-    def _make_key(self, session_id: str) -> str:
-        return f"{self._prefix}:{session_id}"
 
     def create(self, data: dict[str, Any]) -> str:
         session_id = self._id_generator()

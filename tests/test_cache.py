@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import fakeredis
 import fakeredis.aioredis
@@ -336,23 +336,23 @@ class TestAsyncCache:
         assert await bound.get() is None
 
     @pytest.mark.asyncio
-    async def test_delete_pattern_cluster_deletes_keys_individually(self):
+    async def test_delete_pattern_cluster_uses_pipeline(self):
         async def scan_iter(*args, **kwargs):
             for key in [b"test:cache:user:1", b"test:cache:user:2"]:
                 yield key
 
+        pipe_mock = MagicMock()
+        pipe_mock.execute = AsyncMock(return_value=[1, 1])
         client = MagicMock()
         client.scan_iter = scan_iter
-        client.delete = AsyncMock()
+        client.pipeline.return_value = pipe_mock
         cache = AsyncCache(client, prefix="test:cache", ttl_jitter=0, is_cluster=True)
 
         count = await cache.delete_pattern("user:*")
 
         assert count == 2
-        assert client.delete.await_args_list == [
-            call(b"test:cache:user:1"),
-            call(b"test:cache:user:2"),
-        ]
+        assert pipe_mock.delete.call_count == 2
+        pipe_mock.execute.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

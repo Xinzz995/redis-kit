@@ -7,23 +7,12 @@ from typing import Any
 
 from redis_kit.cache._logic import _MISS as _L2_MISS
 from redis_kit.cache._logic import _NEGATIVE
-from redis_kit.cache.async_cache import AsyncCache
-from redis_kit.cache.local import _MISS, LRUCache
+from redis_kit.cache._tiered_base import TieredCacheBase
+from redis_kit.cache.local import _MISS
 
 
-class AsyncTieredCache:
+class AsyncTieredCache(TieredCacheBase):
     """Async two-tier cache: L1 (local LRU) -> L2 (Redis AsyncCache)."""
-
-    def __init__(
-        self,
-        cache: AsyncCache,
-        local_maxsize: int = 1000,
-        local_ttl: float = 30.0,
-        negative_ttl: float = 5.0,
-    ) -> None:
-        self._l1 = LRUCache(maxsize=local_maxsize, ttl=local_ttl)
-        self._l2 = cache
-        self._negative_ttl = negative_ttl
 
     async def get(self, key: str) -> Any:
         local_val = self._l1.get(key)

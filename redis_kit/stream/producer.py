@@ -2,23 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from redis_kit.stream._base import StreamProducerBase
+
 if TYPE_CHECKING:
-    import redis
+    pass
 
 
-class StreamProducer:
+class StreamProducer(StreamProducerBase):
     """Produces messages to a Redis Stream."""
-
-    def __init__(
-        self,
-        client: redis.Redis,
-        stream: str,
-        prefix: str = "",
-        maxlen: int | None = None,
-    ) -> None:
-        self._client = client
-        self._stream = f"{prefix}:{stream}" if prefix else stream
-        self._maxlen = maxlen
 
     def add(self, data: dict[str, str], msg_id: str = "*") -> str:
         result = self._client.xadd(

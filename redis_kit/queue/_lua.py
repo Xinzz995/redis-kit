@@ -31,8 +31,8 @@ local count = tonumber(ARGV[1])
 local time = redis.call("TIME")
 local now = tonumber(time[1]) + tonumber(time[2]) / 1000000
 local results = redis.call("zrangebyscore", key, "-inf", now, "LIMIT", 0, count)
-for i, v in ipairs(results) do
-    redis.call("zrem", key, v)
+if #results > 0 then
+    redis.call("zrem", key, unpack(results))
 end
 return results
 """

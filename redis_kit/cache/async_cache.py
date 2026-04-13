@@ -153,7 +153,10 @@ class AsyncCache(CacheBase):
         """Internal get_many returning _MISS sentinel for cache misses."""
         full_keys = [self._make_key(k) for k in keys]
         if self._is_cluster:
-            raw_values = list(await asyncio.gather(*(self._client.get(k) for k in full_keys)))
+            pipe = self._client.pipeline(transaction=False)
+            for k in full_keys:
+                pipe.get(k)
+            raw_values = await pipe.execute()
         else:
             raw_values = await self._client.mget(full_keys)
         result = {}
@@ -168,15 +171,15 @@ class AsyncCache(CacheBase):
         start = time.monotonic()
         try:
             if self._is_cluster:
-                coros = []
+                pipe = self._client.pipeline(transaction=False)
                 for key, value in mapping.items():
                     full_key = self._make_key(key)
                     encoded = self._pipeline.encode(value)
                     if resolved_ttl is not None and resolved_ttl > 0:
-                        coros.append(self._client.setex(full_key, resolved_ttl, encoded))
+                        pipe.setex(full_key, resolved_ttl, encoded)
                     else:
-                        coros.append(self._client.set(full_key, encoded))
-                await asyncio.gather(*coros)
+                        pipe.set(full_key, encoded)
+                await pipe.execute()
             else:
                 pipe = self._client.pipeline(transaction=False)
                 for key, value in mapping.items():
@@ -196,7 +199,10 @@ class AsyncCache(CacheBase):
 
     async def _flush_delete_batch(self, batch: list[bytes | str]) -> None:
         if self._is_cluster:
-            await asyncio.gather(*(self._client.delete(k) for k in batch))
+            pipe = self._client.pipeline(transaction=False)
+            for k in batch:
+                pipe.delete(k)
+            await pipe.execute()
         else:
             await self._client.delete(*batch)
 

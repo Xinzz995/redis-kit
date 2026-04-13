@@ -6,29 +6,15 @@ from typing import TYPE_CHECKING
 from redis.exceptions import ResponseError
 
 from redis_kit.exceptions import StreamError
+from redis_kit.stream._base import StreamConsumerBase
 from redis_kit.stream.message import StreamMessage, decode_stream_data
 
 if TYPE_CHECKING:
-    import redis.asyncio
+    pass
 
 
-class AsyncStreamConsumer:
+class AsyncStreamConsumer(StreamConsumerBase):
     """Async consumer for Redis Streams using consumer groups."""
-
-    def __init__(
-        self,
-        client: redis.asyncio.Redis,
-        stream: str,
-        group: str,
-        consumer_name: str,
-        prefix: str = "",
-        auto_ack: bool = True,
-    ) -> None:
-        self._client = client
-        self._stream = f"{prefix}:{stream}" if prefix else stream
-        self._group = group
-        self._consumer_name = consumer_name
-        self._auto_ack = auto_ack
 
     async def ensure_group(self, start_id: str = "0") -> None:
         try:
@@ -74,15 +60,7 @@ class AsyncStreamConsumer:
             count=count,
             idle=min_idle_ms,
         )
-        return [
-            {
-                "id": (entry["message_id"].decode() if isinstance(entry["message_id"], bytes) else entry["message_id"]),
-                "consumer": (entry["consumer"].decode() if isinstance(entry["consumer"], bytes) else entry["consumer"]),
-                "idle_ms": entry["time_since_delivered"],
-                "delivery_count": entry["times_delivered"],
-            }
-            for entry in result
-        ]
+        return self._parse_pending_entries(result)
 
     async def claim_stale(self, min_idle_ms: int = 60000, count: int = 10) -> list[StreamMessage]:
         result = await self._client.xautoclaim(
