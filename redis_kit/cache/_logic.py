@@ -19,6 +19,8 @@ _NONE_MARKER = b"__REDIS_KIT_NONE__"
 _NONE_MARKER_STR = _NONE_MARKER.decode()
 
 _TTL_MULTIPLIERS = {"d": 86400, "h": 3600, "m": 60, "s": 1}
+_TTL_VALIDATE_RE = re.compile(r"\s*(\d+\s*[dhms]\s*)+")
+_TTL_PARSE_RE = re.compile(r"(\d+)\s*([dhms])")
 
 
 def parse_ttl(ttl: str | int | float) -> int:
@@ -33,10 +35,10 @@ def parse_ttl(ttl: str | int | float) -> int:
         return int(ttl)
     if isinstance(ttl, str):
         lower_ttl = ttl.lower()
-        if not re.fullmatch(r"\s*(\d+\s*[dhms]\s*)+", lower_ttl):
+        if not _TTL_VALIDATE_RE.fullmatch(lower_ttl):
             raise ValueError(f"Invalid TTL string: '{ttl}'")
         total = 0
-        for match in re.finditer(r"(\d+)\s*([dhms])", lower_ttl):
+        for match in _TTL_PARSE_RE.finditer(lower_ttl):
             value, unit = int(match.group(1)), match.group(2)
             total += value * _TTL_MULTIPLIERS[unit]
         return total

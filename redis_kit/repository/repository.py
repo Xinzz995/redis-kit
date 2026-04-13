@@ -187,13 +187,10 @@ class Repository:
             eid = raw_id.decode() if isinstance(raw_id, bytes) else raw_id
             decoded_ids.append(eid)
 
-        if self._is_cluster:
-            all_data = [self._client.hgetall(self._make_key(eid)) for eid in decoded_ids]
-        else:
-            pipe = self._client.pipeline(transaction=False)
-            for eid in decoded_ids:
-                pipe.hgetall(self._make_key(eid))
-            all_data = pipe.execute()
+        pipe = self._client.pipeline(transaction=False)
+        for eid in decoded_ids:
+            pipe.hgetall(self._make_key(eid))
+        all_data = pipe.execute()
         result = []
         for data in all_data:
             if not data:

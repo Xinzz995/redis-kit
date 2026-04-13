@@ -36,11 +36,12 @@ class MetricsCollector:
 
     def latency_stats(self) -> dict[str, float]:
         with self._lock:
-            if not self._latencies:
-                return {"count": 0, "avg": 0, "min": 0, "max": 0}
-            return {
-                "count": len(self._latencies),
-                "avg": sum(self._latencies) / len(self._latencies),
-                "min": min(self._latencies),
-                "max": max(self._latencies),
-            }
+            snapshot = list(self._latencies)
+        if not snapshot:
+            return {"count": 0, "avg": 0, "min": 0, "max": 0}
+        return {
+            "count": len(snapshot),
+            "avg": sum(snapshot) / len(snapshot),
+            "min": min(snapshot),
+            "max": max(snapshot),
+        }

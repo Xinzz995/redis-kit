@@ -25,7 +25,7 @@ class AsyncMessage:
         await self._queue._ack(self._raw)
 
     async def nack(self) -> None:
-        await self._queue._nack(self._raw, self.data)
+        await self._queue._nack(self._raw, self.id, self.data)
 
 
 class AsyncReliableQueue:
@@ -57,9 +57,8 @@ class AsyncReliableQueue:
         """Remove message from processing list. O(N) where N is processing list length."""
         await self._client.lrem(self._processing_key, 1, raw)
 
-    async def _nack(self, raw: bytes, data: Any) -> None:
-        msg = json.loads(raw)
-        payload = json.dumps({"id": msg["id"], "data": data}).encode("utf-8")
+    async def _nack(self, raw: bytes, msg_id: str, data: Any) -> None:
+        payload = json.dumps({"id": msg_id, "data": data}).encode("utf-8")
         await self._nack_script(
             keys=[self._processing_key, self._queue_key],
             args=[raw, payload],
