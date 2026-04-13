@@ -20,10 +20,11 @@ T = TypeVar("T", bound=BaseModel)
 class AsyncRepository:
     """Async Redis-backed repository with CRUD, versioning, soft delete, and audit."""
 
-    def __init__(self, client: redis.asyncio.Redis, model_class: type[T], prefix: str = "") -> None:
+    def __init__(self, client: redis.asyncio.Redis, model_class: type[T], prefix: str = "", is_cluster: bool = False) -> None:
         self._client = client
         self._model_class = model_class
         self._prefix = prefix
+        self._is_cluster = is_cluster
         self._lock_set_script = self._client.register_script(OPTIMISTIC_LOCK_SET)
         self._lock_partial_set_script = self._client.register_script(OPTIMISTIC_LOCK_PARTIAL_SET)
         self._index_key = f"{self._prefix}:_index" if self._prefix else "_index"
@@ -170,13 +171,18 @@ class AsyncRepository:
         ids = await self._client.smembers(self._index_key)
         if not ids:
             return []
-        pipe = self._client.pipeline(transaction=False)
         decoded_ids = []
         for raw_id in ids:
             eid = raw_id.decode() if isinstance(raw_id, bytes) else raw_id
             decoded_ids.append(eid)
-            pipe.hgetall(self._make_key(eid))
-        all_data = await pipe.execute()
+
+        if self._is_cluster:
+            all_data = [await self._client.hgetall(self._make_key(eid)) for eid in decoded_ids]
+        else:
+            pipe = self._client.pipeline(transaction=False)
+            for eid in decoded_ids:
+                pipe.hgetall(self._make_key(eid))
+            all_data = await pipe.execute()
         result = []
         for data in all_data:
             if not data:

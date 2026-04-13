@@ -918,3 +918,24 @@ def test_save_new_entity_uses_pipeline(redis_client):
     assert saved.version == 1
     assert len(pipeline_calls) == 1
     assert pipeline_calls[0] is True  # transaction=True
+
+
+def test_find_all_cluster_mode_no_pipeline(redis_client):
+    """find_all() in cluster mode should use individual hgetall instead of pipeline."""
+    from redis_kit.repository.repository import Repository
+    from redis_kit.repository.model import BaseModel
+    from dataclasses import dataclass
+
+    @dataclass
+    class Item(BaseModel):
+        name: str = ""
+
+    repo = Repository(redis_client, Item, prefix="test_cluster", is_cluster=True)
+
+    repo.save(Item(name="a"))
+    repo.save(Item(name="b"))
+
+    items = repo.find_all()
+    assert len(items) == 2
+    names = {item.name for item in items}
+    assert names == {"a", "b"}
