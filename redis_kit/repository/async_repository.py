@@ -20,7 +20,14 @@ T = TypeVar("T", bound=BaseModel)
 class AsyncRepository:
     """Async Redis-backed repository with CRUD, versioning, soft delete, and audit."""
 
-    def __init__(self, client: redis.asyncio.Redis, model_class: type[T], prefix: str = "", is_cluster: bool = False, max_history: int | None = None) -> None:
+    def __init__(
+        self,
+        client: redis.asyncio.Redis,
+        model_class: type[T],
+        prefix: str = "",
+        is_cluster: bool = False,
+        max_history: int | None = None,
+    ) -> None:
         self._client = client
         self._model_class = model_class
         self._prefix = prefix

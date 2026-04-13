@@ -737,9 +737,10 @@ class TestAsyncCacheEdgeCases:
 @pytest.mark.asyncio
 async def test_async_cache_fallback_callback_awaits_async(async_redis_client):
     """AsyncCache with callback fallback should await async callables."""
+    from redis.exceptions import ConnectionError as RedisConnectionError
+
     from redis_kit.cache.async_cache import AsyncCache
     from redis_kit.exceptions import FallbackPolicy
-    from redis.exceptions import ConnectionError as RedisConnectionError
 
     call_log = []
 

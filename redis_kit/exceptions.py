@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from redis_kit.policy import FallbackPolicy  # noqa: F401 — re-exported for backwards compatibility
+
 # --- Base ---
 
 
@@ -98,11 +100,6 @@ class EntityNotFoundError(RepositoryError):
 
 class OptimisticLockError(RepositoryError):
     """Version conflict during save."""
-
-
-# --- Fallback Policy ---
-# FallbackPolicy lives in redis_kit.policy; re-exported here for backwards compatibility.
-from redis_kit.policy import FallbackPolicy  # noqa: F401
 
 
 # --- Stream ---

@@ -13,12 +13,10 @@ from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from redis_kit.cache._base import CacheBase
 from redis_kit.cache._logic import _MISS
-from redis_kit.exceptions import FallbackPolicy
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    import redis.asyncio
 
 _FALLBACK_ERRORS = (RedisConnectionError, RedisTimeoutError)
 _logger = logging.getLogger("redis_kit.cache")

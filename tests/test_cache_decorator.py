@@ -143,8 +143,8 @@ class TestCachedDecorator:
 
 def test_cached_with_compressor(redis_client):
     """@cached with compressor should produce data decodable by Cache with same compressor."""
-    from redis_kit.cache.decorator import cached
     from redis_kit.cache._logic import DataPipeline
+    from redis_kit.cache.decorator import cached
     from redis_kit.compressors.zlib import ZlibCompressor
 
     compressor = ZlibCompressor()

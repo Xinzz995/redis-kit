@@ -922,9 +922,10 @@ def test_save_new_entity_uses_pipeline(redis_client):
 
 def test_find_all_cluster_mode_no_pipeline(redis_client):
     """find_all() in cluster mode should use individual hgetall instead of pipeline."""
-    from redis_kit.repository.repository import Repository
-    from redis_kit.repository.model import BaseModel
     from dataclasses import dataclass
+
+    from redis_kit.repository.model import BaseModel
+    from redis_kit.repository.repository import Repository
 
     @dataclass
     class Item(BaseModel):
@@ -943,9 +944,10 @@ def test_find_all_cluster_mode_no_pipeline(redis_client):
 
 def test_history_capped_by_max_history(redis_client):
     """History should be trimmed when max_history is set."""
-    from redis_kit.repository.repository import Repository
-    from redis_kit.repository.model import BaseModel
     from dataclasses import dataclass
+
+    from redis_kit.repository.model import BaseModel
+    from redis_kit.repository.repository import Repository
 
     @dataclass
     class Item(BaseModel):

@@ -129,6 +129,7 @@ class TestConnectionManagerCloseSafety:
 def test_from_clients_no_event_loop_leak():
     """_from_clients with async_client should not create and leak an event loop."""
     from unittest.mock import AsyncMock
+
     from redis_kit.connection import ConnectionManager
 
     mock_async = AsyncMock()
@@ -143,6 +144,7 @@ def test_from_clients_no_event_loop_leak():
 async def test_from_clients_deferred_async_client():
     """_from_clients async_client should be registered when async_client property is accessed."""
     from unittest.mock import AsyncMock
+
     from redis_kit.connection import ConnectionManager
 
     mock_async = AsyncMock()
