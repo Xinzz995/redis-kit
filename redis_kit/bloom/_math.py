@@ -15,8 +15,8 @@ def _optimal_hash_count(m: int, n: int) -> int:
 
 
 def _get_offsets(item: str, size: int, hash_count: int) -> list[int]:
-    """Double hashing: compute 2 base hashes, derive k offsets."""
-    digest = hashlib.md5(item.encode()).digest()  # noqa: S324
+    """Double hashing: compute 2 base hashes from SHA-256, derive k offsets."""
+    digest = hashlib.sha256(item.encode()).digest()
     h1 = int.from_bytes(digest[:8], "big")
-    h2 = int.from_bytes(digest[8:], "big")
+    h2 = int.from_bytes(digest[8:16], "big")
     return [(h1 + i * h2) % size for i in range(hash_count)]

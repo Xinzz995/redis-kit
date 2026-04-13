@@ -27,7 +27,7 @@ class CacheBase:
         serializer: Serializer | None = None,
         compressor: Compressor | None = None,
         ttl_jitter: float = 0.1,
-        fallback_policy: Any | None = None,
+        fallback_policy: FallbackPolicy | None = None,
         hooks: list[CommandHook] | None = None,
         is_cluster: bool = False,
     ) -> None:
@@ -75,6 +75,6 @@ class CacheBase:
                 elif phase == "after":
                     hook.after(command, key, kwargs.get("result"), kwargs.get("duration_ms", 0))
                 elif phase == "error":
-                    hook.on_error(command, key, kwargs.get("error", RuntimeError()))
+                    hook.on_error(command, key, kwargs["error"])
             except Exception:
                 _logger.exception("Hook %s() failed for %s", phase, type(hook).__name__)

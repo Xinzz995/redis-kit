@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 import uuid
@@ -48,7 +49,7 @@ class Lock(LockBase):
         renew_timer: _WatchdogHandle | None = None
 
         if reentrant:
-            owner = f"thread:{threading.current_thread().ident}"
+            owner = f"thread:{os.getpid()}:{threading.current_thread().ident}"
             acquired = self._acquire_reentrant(key, owner, timeout, blocking_timeout)
         else:
             acquired = self._acquire_basic(key, owner, timeout, blocking_timeout)
@@ -139,7 +140,7 @@ class Lock(LockBase):
         return handle
 
     @contextmanager
-    def read(self, name: str, timeout: int = 10) -> Iterator[None]:
+    def read(self, name: str, timeout: int = 10, blocking_timeout: float | None = None) -> Iterator[None]:
         """Acquire a read lock (shared). Multiple readers allowed.
 
         Uses reader-preference policy: continuous readers may starve writers
@@ -147,7 +148,16 @@ class Lock(LockBase):
         """
         key = self._make_key(name) + ":rwlock"
         writer_key = key + ":writer"
-        acquired = self._read_acquire_script(keys=[key, writer_key], args=[timeout])
+        if blocking_timeout is not None:
+            deadline = time.monotonic() + blocking_timeout
+            acquired = False
+            while time.monotonic() < deadline:
+                if self._read_acquire_script(keys=[key, writer_key], args=[timeout]):
+                    acquired = True
+                    break
+                time.sleep(0.05)
+        else:
+            acquired = self._read_acquire_script(keys=[key, writer_key], args=[timeout])
         if not acquired:
             raise LockAcquireError(f"Failed to acquire read lock '{name}': writer active")
         try:
@@ -162,7 +172,9 @@ class Lock(LockBase):
             self._read_release_script(keys=[key], args=[])
 
     @contextmanager
-    def write(self, name: str, timeout: int = 10, blocking_timeout: float = 5.0) -> Iterator[None]:
+    def write(
+        self, name: str, timeout: int = 10, blocking_timeout: float = 5.0, auto_renew: bool = False
+    ) -> Iterator[None]:
         """Acquire a write lock (exclusive). Waits for readers to finish.
 
         Exception-safe: release failures do not mask the original exception (see ``__call__``).
@@ -170,6 +182,7 @@ class Lock(LockBase):
         key = self._make_key(name) + ":rwlock"
         writer_key = key + ":writer"
         owner = uuid.uuid4().hex
+        renew_timer: _WatchdogHandle | None = None
         deadline = time.monotonic() + blocking_timeout
 
         while time.monotonic() < deadline:
@@ -180,12 +193,18 @@ class Lock(LockBase):
             raise LockAcquireError(f"Failed to acquire write lock '{name}'")
 
         try:
+            if auto_renew:
+                renew_timer = self._start_watchdog(writer_key, owner, timeout, reentrant=False)
             yield
         except BaseException:
+            if renew_timer is not None:
+                renew_timer.cancel()
             try:
                 self._release_write(writer_key, owner, name)
             except LockReleaseError:
                 _logger.warning("Failed to release write lock '%s' while handling another exception", name)
             raise
         else:
+            if renew_timer is not None:
+                renew_timer.cancel()
             self._release_write(writer_key, owner, name)

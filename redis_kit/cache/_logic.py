@@ -14,8 +14,9 @@ _MISS = object()
 # Sentinel for negative cache entries (L1 marker for L2 miss)
 _NEGATIVE = object()
 
-# Marker prefix for cached None values
-_NONE_MARKER = b"__REDIS_KIT_NONE__"
+# Marker prefix for cached None values.
+# Uses null bytes to avoid collision with user data.
+_NONE_MARKER = b"\x00__REDIS_KIT_NONE__\x00"
 _NONE_MARKER_STR = _NONE_MARKER.decode()
 
 _TTL_MULTIPLIERS = {"d": 86400, "h": 3600, "m": 60, "s": 1}

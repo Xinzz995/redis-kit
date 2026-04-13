@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -31,7 +32,7 @@ class AsyncLock(LockBase):
 
         if reentrant:
             task = asyncio.current_task()
-            owner = f"task:{id(task)}" if task else owner
+            owner = f"task:{os.getpid()}:{id(task)}" if task else owner
             acquired = await self._acquire_reentrant(key, owner, timeout, blocking_timeout)
         else:
             acquired = await self._acquire_basic(key, owner, timeout, blocking_timeout)
@@ -109,7 +110,7 @@ class AsyncLock(LockBase):
                 break
 
     @asynccontextmanager
-    async def read(self, name: str, timeout: int = 10) -> AsyncIterator[None]:
+    async def read(self, name: str, timeout: int = 10, blocking_timeout: float | None = None) -> AsyncIterator[None]:
         """Acquire a read lock (shared). Multiple readers allowed.
 
         Uses reader-preference policy: continuous readers may starve writers
@@ -117,7 +118,16 @@ class AsyncLock(LockBase):
         """
         key = self._make_key(name) + ":rwlock"
         writer_key = key + ":writer"
-        acquired = await self._read_acquire_script(keys=[key, writer_key], args=[timeout])
+        if blocking_timeout is not None:
+            deadline = time.monotonic() + blocking_timeout
+            acquired = False
+            while time.monotonic() < deadline:
+                if await self._read_acquire_script(keys=[key, writer_key], args=[timeout]):
+                    acquired = True
+                    break
+                await asyncio.sleep(0.05)
+        else:
+            acquired = await self._read_acquire_script(keys=[key, writer_key], args=[timeout])
         if not acquired:
             raise LockAcquireError(f"Failed to acquire read lock '{name}': writer active")
         try:
@@ -132,7 +142,9 @@ class AsyncLock(LockBase):
             await self._read_release_script(keys=[key], args=[])
 
     @asynccontextmanager
-    async def write(self, name: str, timeout: int = 10, blocking_timeout: float = 5.0) -> AsyncIterator[None]:
+    async def write(
+        self, name: str, timeout: int = 10, blocking_timeout: float = 5.0, auto_renew: bool = False
+    ) -> AsyncIterator[None]:
         """Acquire a write lock (exclusive). Waits for readers to finish.
 
         Exception-safe: release failures do not mask the original exception (see ``__call__``).
@@ -140,6 +152,7 @@ class AsyncLock(LockBase):
         key = self._make_key(name) + ":rwlock"
         writer_key = key + ":writer"
         owner = uuid.uuid4().hex
+        renew_task: asyncio.Task[None] | None = None
         deadline = time.monotonic() + blocking_timeout
 
         while time.monotonic() < deadline:
@@ -150,12 +163,18 @@ class AsyncLock(LockBase):
             raise LockAcquireError(f"Failed to acquire write lock '{name}'")
 
         try:
+            if auto_renew:
+                renew_task = asyncio.create_task(self._watchdog(writer_key, owner, timeout, reentrant=False))
             yield
         except BaseException:
+            if renew_task is not None:
+                renew_task.cancel()
             try:
                 await self._release_write(writer_key, owner, name)
             except LockReleaseError:
                 _logger.warning("Failed to release write lock '%s' while handling another exception", name)
             raise
         else:
+            if renew_task is not None:
+                renew_task.cancel()
             await self._release_write(writer_key, owner, name)

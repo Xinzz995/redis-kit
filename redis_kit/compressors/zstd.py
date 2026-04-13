@@ -4,7 +4,12 @@ import zstandard
 
 
 class ZstdCompressor:
-    """Zstandard compressor. Fast with high compression ratio."""
+    """Zstandard compressor. Fast with high compression ratio.
+
+    The underlying ``zstandard`` compressor/decompressor instances are
+    reused across calls. Per the ``python-zstandard`` documentation,
+    ``ZstdCompressor`` instances are safe to use from multiple threads.
+    """
 
     def __init__(self, level: int = 3) -> None:
         self._compressor = zstandard.ZstdCompressor(level=level)

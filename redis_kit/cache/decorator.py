@@ -24,14 +24,11 @@ def cached(
     bypass: Callable[..., bool] | None = None,
     prefix: str = "",
     ttl_jitter: float = 0.1,
+    on_error: str = "raise",
 ) -> Callable:
     """Decorator to cache function results in Redis.
 
     Automatically detects sync/async functions.
-
-    Note: Unlike ``Cache``, this decorator does not support ``FallbackPolicy``
-    or hooks. Redis connection errors will propagate directly to the caller.
-    Use ``Cache`` with ``remember()`` if you need resilience features.
 
     Args:
         client: Redis client instance.
@@ -44,7 +41,12 @@ def cached(
             is still written back to cache (force-refresh behavior, not skip).
         prefix: Optional key prefix prepended as "{prefix}:{key}".
         ttl_jitter: TTL jitter factor (0.1 = +/- 10%).
+        on_error: Error handling strategy for Redis failures.
+            ``"raise"`` (default) propagates the error.
+            ``"execute"`` skips the cache and executes the function directly.
     """
+    if on_error not in ("raise", "execute"):
+        raise ValueError(f"on_error must be 'raise' or 'execute', got {on_error!r}")
     pipeline = DataPipeline(serializer, compressor)
 
     def decorator(func: Callable) -> Callable:
@@ -103,15 +105,29 @@ def cached(
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 bound_args = _bind(args, kwargs)
-                cache_key = _resolve_key(bound_args)
+                try:
+                    cache_key = _resolve_key(bound_args)
+                except Exception:
+                    if on_error == "execute":
+                        return await func(*args, **kwargs)
+                    raise
 
                 if not _should_bypass(bound_args):
-                    value = pipeline.decode(await client.get(cache_key))
-                    if value is not _MISS:
-                        return value
+                    try:
+                        value = pipeline.decode(await client.get(cache_key))
+                        if value is not _MISS:
+                            return value
+                    except Exception:
+                        if on_error == "execute":
+                            return await func(*args, **kwargs)
+                        raise
 
                 result = await func(*args, **kwargs)
-                await _async_write_cache(cache_key, result, _resolve_ttl(bound_args))
+                try:
+                    await _async_write_cache(cache_key, result, _resolve_ttl(bound_args))
+                except Exception:
+                    if on_error != "execute":
+                        raise
                 return result
 
             async_wrapper.invalidate = _async_invalidate  # type: ignore[attr-defined]
@@ -121,15 +137,29 @@ def cached(
             @functools.wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
                 bound_args = _bind(args, kwargs)
-                cache_key = _resolve_key(bound_args)
+                try:
+                    cache_key = _resolve_key(bound_args)
+                except Exception:
+                    if on_error == "execute":
+                        return func(*args, **kwargs)
+                    raise
 
                 if not _should_bypass(bound_args):
-                    value = pipeline.decode(client.get(cache_key))
-                    if value is not _MISS:
-                        return value
+                    try:
+                        value = pipeline.decode(client.get(cache_key))
+                        if value is not _MISS:
+                            return value
+                    except Exception:
+                        if on_error == "execute":
+                            return func(*args, **kwargs)
+                        raise
 
                 result = func(*args, **kwargs)
-                _write_cache(cache_key, result, _resolve_ttl(bound_args))
+                try:
+                    _write_cache(cache_key, result, _resolve_ttl(bound_args))
+                except Exception:
+                    if on_error != "execute":
+                        raise
                 return result
 
             sync_wrapper.invalidate = _invalidate  # type: ignore[attr-defined]

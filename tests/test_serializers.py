@@ -66,9 +66,10 @@ class TestPickleSerializer:
 
 def test_pickle_serializer_emits_security_warning(caplog):
     """PickleSerializer should log a security warning on first instantiation."""
+    import redis_kit.serializers.pickle as _pickle_mod
     from redis_kit.serializers.pickle import PickleSerializer
 
-    PickleSerializer._warned = False  # reset for test isolation
+    _pickle_mod._pickle_warned = False  # reset for test isolation
     with caplog.at_level(logging.WARNING, logger="redis_kit.serializers"):
         PickleSerializer()
     assert any("pickle" in r.message.lower() and "untrusted" in r.message.lower() for r in caplog.records)

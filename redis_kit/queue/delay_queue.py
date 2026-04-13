@@ -13,6 +13,8 @@ class DelayQueue(DelayQueueBase):
         self._put_script(keys=[self._key], args=[delay, payload])
 
     def poll(self, count: int = 10) -> list[Any]:
+        if count <= 0:
+            raise ValueError("count must be positive")
         results = self._poll_script(keys=[self._key], args=[count])
         return self._decode_poll_results(results)
 

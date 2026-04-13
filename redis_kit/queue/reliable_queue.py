@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from redis_kit.exceptions import QueueEmptyError
@@ -14,8 +14,8 @@ class Message:
 
     id: str
     data: Any
-    _queue: ReliableQueue
-    _raw: bytes
+    _queue: ReliableQueue = field(repr=False)
+    _raw: bytes = field(repr=False)
 
     def ack(self) -> None:
         self._queue._ack(self._raw)
@@ -57,3 +57,23 @@ class ReliableQueue(ReliableQueueBase):
 
     def processing_count(self) -> int:
         return self._client.llen(self._processing_key)
+
+    def recover_stale(self, max_items: int = 100) -> int:
+        """Move all messages from the processing list back to the queue.
+
+        Use this to recover messages left by crashed consumers that never
+        called ack() or nack(). Returns the number of recovered messages.
+
+        .. note::
+
+            This is a blunt recovery mechanism — it re-enqueues ALL messages
+            in the processing list regardless of age. For time-based recovery,
+            consider using Redis Streams with ``claim_stale()`` instead.
+        """
+        count = 0
+        while count < max_items:
+            msg = self._client.lmove(self._processing_key, self._queue_key, "RIGHT", "LEFT")
+            if msg is None:
+                break
+            count += 1
+        return count

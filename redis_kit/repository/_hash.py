@@ -16,7 +16,7 @@ logger = logging.getLogger("redis_kit")
 T = TypeVar("T", bound=BaseModel)
 
 
-_NONE_SENTINEL = "__NONE__"
+_NONE_SENTINEL = "\x00__NONE__\x00"
 
 _EMPTY_HINTS: types.MappingProxyType[str, type] = types.MappingProxyType({})
 
@@ -53,7 +53,12 @@ def to_hash(entity: BaseModel) -> dict[str, str]:
 
 
 def from_hash(data: dict[bytes | str, bytes | str], model_class: type[T]) -> T:
-    """Convert a Redis hash mapping back to a BaseModel entity."""
+    """Convert a Redis hash mapping back to a BaseModel entity.
+
+    Supported field types: ``str``, ``int``, ``float``, ``bool``, ``datetime``,
+    and ``Optional`` variants of these. Complex types (``list``, ``dict``, etc.)
+    are stored via ``str()`` and returned as strings — use simple scalar fields.
+    """
     decoded = {}
     for k, v in data.items():
         key = k.decode() if isinstance(k, bytes) else k

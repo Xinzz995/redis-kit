@@ -6,7 +6,15 @@ from datetime import datetime
 
 @dataclass
 class BaseModel:
-    """Base entity with audit metadata, versioning, and soft delete support."""
+    """Base entity with audit metadata, versioning, and soft delete support.
+
+    Entities are mutable dataclasses for ergonomic field updates. However,
+    to preserve version integrity, always use ``dataclasses.replace()`` to
+    create modified copies rather than mutating fields in place::
+
+        updated = dataclasses.replace(entity, name="new name")
+        repo.save(updated)
+    """
 
     id: str = ""
     version: int = 0

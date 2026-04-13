@@ -12,7 +12,7 @@ from redis_kit.exceptions import (
     RedisKitError,
     RepositoryError,
 )
-from redis_kit.repository._hash import from_hash
+from redis_kit.repository._hash import _NONE_SENTINEL, from_hash
 from redis_kit.repository.async_repository import AsyncRepository
 from redis_kit.repository.model import BaseModel
 from redis_kit.repository.repository import Repository
@@ -408,10 +408,10 @@ class TestFromHashMissingFieldNoDefault:
             mapping={
                 "id": "manual1",
                 "version": "1",
-                "created_at": "__NONE__",
-                "updated_at": "__NONE__",
+                "created_at": _NONE_SENTINEL,
+                "updated_at": _NONE_SENTINEL,
                 "deleted": "0",
-                "deleted_at": "__NONE__",
+                "deleted_at": _NONE_SENTINEL,
                 "age": "25",
                 # 'label' is missing but has default="" -> should use default
             },
@@ -436,10 +436,10 @@ class TestFromHashMissingFieldNoDefault:
         data = {
             "id": "x",
             "version": "1",
-            "created_at": "__NONE__",
-            "updated_at": "__NONE__",
+            "created_at": _NONE_SENTINEL,
+            "updated_at": _NONE_SENTINEL,
             "deleted": "0",
-            "deleted_at": "__NONE__",
+            "deleted_at": _NONE_SENTINEL,
             "name": "test",
             "value": "val",
         }
@@ -469,10 +469,10 @@ class TestAsyncFromHashMissingFieldNoDefault:
             mapping={
                 "id": "manual1",
                 "version": "1",
-                "created_at": "__NONE__",
-                "updated_at": "__NONE__",
+                "created_at": _NONE_SENTINEL,
+                "updated_at": _NONE_SENTINEL,
                 "deleted": "0",
-                "deleted_at": "__NONE__",
+                "deleted_at": _NONE_SENTINEL,
                 "age": "25",
             },
         )
@@ -695,10 +695,10 @@ class TestDeleteOptimisticLock:
         stale_data = {
             b"id": b"placeholder",
             b"version": b"2",
-            b"created_at": b"__NONE__",
-            b"updated_at": b"__NONE__",
+            b"created_at": _NONE_SENTINEL.encode(),
+            b"updated_at": _NONE_SENTINEL.encode(),
             b"deleted": b"0",
-            b"deleted_at": b"__NONE__",
+            b"deleted_at": _NONE_SENTINEL.encode(),
             b"name": b"key",
             b"value": b"v2",
         }
@@ -860,10 +860,10 @@ class TestAsyncDeleteOptimisticLock:
         stale_data = {
             b"id": b"placeholder",
             b"version": b"2",
-            b"created_at": b"__NONE__",
-            b"updated_at": b"__NONE__",
+            b"created_at": _NONE_SENTINEL.encode(),
+            b"updated_at": _NONE_SENTINEL.encode(),
             b"deleted": b"0",
-            b"deleted_at": b"__NONE__",
+            b"deleted_at": _NONE_SENTINEL.encode(),
             b"name": b"key",
             b"value": b"v2",
         }

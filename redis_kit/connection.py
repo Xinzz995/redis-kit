@@ -26,6 +26,11 @@ class ConnectionManager:
         url: str | None = None,
         config: ConnectionConfig | SentinelConfig | ClusterConfig | None = None,
     ) -> None:
+        if url is not None and config is not None and not isinstance(config, ConnectionConfig):
+            raise ValueError(
+                f"'url' is only supported with ConnectionConfig, got {type(config).__name__}. "
+                "For Sentinel/Cluster, configure connection details via the config object."
+            )
         self._url = url
         self._config = config or ConnectionConfig()
         self._sync_client: redis.Redis | None = None
@@ -260,6 +265,13 @@ class ConnectionManager:
         Snapshots and clears the entire _async_clients registry before
         awaiting each client's aclose(), so callers from any loop trigger
         a full cleanup rather than only closing their own loop's client.
+
+        .. note::
+
+            Closing a client created on a different event loop may silently
+            fail if that loop has already been shut down. In multi-loop
+            environments, prefer calling ``aclose()`` from each loop before
+            it exits, or accept that cross-loop cleanup is best-effort.
         """
         with self._async_lock:
             clients = list(self._async_clients.values())

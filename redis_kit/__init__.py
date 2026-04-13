@@ -12,7 +12,6 @@ from redis_kit.exceptions import (
     CacheError,
     ConnectionPoolExhaustedError,
     EntityNotFoundError,
-    FallbackPolicy,
     LockAcquireError,
     LockError,
     LockReleaseError,
@@ -32,6 +31,7 @@ from redis_kit.exceptions import (
 from redis_kit.hooks import CommandHook, CompositeHook
 from redis_kit.lock import AsyncLock, Lock
 from redis_kit.observability import MetricsCollector
+from redis_kit.policy import FallbackPolicy
 from redis_kit.queue import (
     AsyncDelayQueue,
     AsyncPubSub,

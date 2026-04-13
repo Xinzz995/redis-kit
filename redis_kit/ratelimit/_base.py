@@ -16,6 +16,10 @@ class SlidingWindowBase:
         limit: int = 100,
         window: int = 60,
     ) -> None:
+        if limit <= 0:
+            raise ValueError("limit must be positive")
+        if window <= 0:
+            raise ValueError("window must be positive")
         self._client = client
         self._prefix = prefix
         self._limit = limit

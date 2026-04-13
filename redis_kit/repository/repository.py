@@ -17,16 +17,9 @@ T = TypeVar("T", bound=BaseModel)
 class Repository(RepositoryBase):
     """Redis-backed repository with CRUD, versioning, soft delete, and audit."""
 
-    def _append_history(self, entity: T) -> None:
-        history_key = self._history_key(entity.id)
-        history_json = json.dumps(to_hash(entity))
-        if self._max_history is not None:
-            pipe = self._client.pipeline(transaction=False)
-            pipe.lpush(history_key, history_json)
-            pipe.ltrim(history_key, 0, self._max_history - 1)
-            pipe.execute()
-        else:
-            self._client.lpush(history_key, history_json)
+    def _max_history_arg(self) -> str:
+        """Return max_history as a Lua-compatible string arg (-1 = unlimited)."""
+        return str(self._max_history) if self._max_history is not None else "-1"
 
     def save(self, entity: T) -> T:
         now = datetime.now(tz=UTC)
@@ -41,29 +34,24 @@ class Repository(RepositoryBase):
                 updated_at=now,
             )
         else:
-            # Update existing — atomic optimistic lock check + write
+            # Update existing — atomic optimistic lock check + write + history
             key = self._make_key(entity.id)
+            history_key = self._history_key(entity.id)
             entity = dataclasses.replace(
                 entity,
                 version=entity.version + 1,
                 updated_at=now,
             )
             hash_data = to_hash(entity)
-            # Flatten: [expected_version, field1, val1, field2, val2, ...]
-            flat_args: list[str] = [str(entity.version - 1)]
+            # Flatten: [expected_version, max_history, field1, val1, field2, val2, ...]
+            flat_args: list[str] = [str(entity.version - 1), self._max_history_arg()]
             for field_name, value in hash_data.items():
                 flat_args.append(field_name)
                 flat_args.append(value)
-            # Lua returns 0 on conflict, or old hash data as flat list
-            result = self._lock_set_script(keys=[key], args=flat_args)
+            # Lua returns 0 on conflict, 1 on success (history written atomically)
+            result = self._lock_set_script(keys=[key, history_key], args=flat_args)
             if result == 0:
                 raise OptimisticLockError(f"Version conflict for entity '{entity.id}': expected {entity.version - 1}")
-
-            # Write history from atomically-read old data
-            if result:
-                existing_data = {result[i]: result[i + 1] for i in range(0, len(result), 2)}
-                old_entity = from_hash(existing_data, self._model_class)
-                self._append_history(old_entity)
 
             return entity
 
@@ -93,6 +81,7 @@ class Repository(RepositoryBase):
 
     def delete(self, entity_id: str) -> None:
         key = self._make_key(entity_id)
+        history_key = self._history_key(entity_id)
         data = self._client.hgetall(key)
         if not data:
             raise EntityNotFoundError(f"Entity '{entity_id}' not found")
@@ -101,6 +90,7 @@ class Repository(RepositoryBase):
         new_version = entity.version + 1
         flat_args: list[str] = [
             str(entity.version),
+            self._max_history_arg(),
             "deleted",
             "1",
             "deleted_at",
@@ -110,10 +100,9 @@ class Repository(RepositoryBase):
             "updated_at",
             now.isoformat(),
         ]
-        allowed = self._lock_partial_set_script(keys=[key], args=flat_args)
+        allowed = self._lock_partial_set_script(keys=[key, history_key], args=flat_args)
         if not allowed:
             raise OptimisticLockError(f"Version conflict for entity '{entity_id}': expected {entity.version}")
-        self._append_history(entity)
 
     def hard_delete(self, entity_id: str) -> None:
         key = self._make_key(entity_id)
@@ -125,6 +114,7 @@ class Repository(RepositoryBase):
 
     def restore(self, entity_id: str) -> T:
         key = self._make_key(entity_id)
+        history_key = self._history_key(entity_id)
         data = self._client.hgetall(key)
         if not data:
             raise EntityNotFoundError(f"Entity '{entity_id}' not found")
@@ -135,6 +125,7 @@ class Repository(RepositoryBase):
         new_version = entity.version + 1
         flat_args: list[str] = [
             str(entity.version),
+            self._max_history_arg(),
             "deleted",
             "0",
             "deleted_at",
@@ -144,10 +135,9 @@ class Repository(RepositoryBase):
             "updated_at",
             now.isoformat(),
         ]
-        allowed = self._lock_partial_set_script(keys=[key], args=flat_args)
+        allowed = self._lock_partial_set_script(keys=[key, history_key], args=flat_args)
         if not allowed:
             raise OptimisticLockError(f"Version conflict for entity '{entity_id}': expected {entity.version}")
-        self._append_history(entity)
         return dataclasses.replace(entity, deleted=False, deleted_at=None, version=new_version, updated_at=now)
 
     def find_all(self) -> list[T]:
@@ -159,10 +149,13 @@ class Repository(RepositoryBase):
             eid = raw_id.decode() if isinstance(raw_id, bytes) else raw_id
             decoded_ids.append(eid)
 
-        pipe = self._client.pipeline(transaction=False)
-        for eid in decoded_ids:
-            pipe.hgetall(self._make_key(eid))
-        all_data = pipe.execute()
+        if self._is_cluster:
+            all_data = [self._client.hgetall(self._make_key(eid)) for eid in decoded_ids]
+        else:
+            pipe = self._client.pipeline(transaction=False)
+            for eid in decoded_ids:
+                pipe.hgetall(self._make_key(eid))
+            all_data = pipe.execute()
         result = []
         for data in all_data:
             if not data:

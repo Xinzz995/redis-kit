@@ -15,7 +15,13 @@ class FallbackPolicy:
     log_on_fallback: bool = True
     logger: logging.Logger = field(default_factory=lambda: logging.getLogger("redis_kit"))
 
+    _VALID_POLICIES = ("raise", "return_none", "callback")
+
     def __post_init__(self) -> None:
+        if self.on_connection_error not in self._VALID_POLICIES:
+            raise ValueError(
+                f"on_connection_error must be one of {self._VALID_POLICIES}, got {self.on_connection_error!r}"
+            )
         if self.on_connection_error == "callback" and self.fallback is None:
             raise ValueError("FallbackPolicy with on_connection_error='callback' requires a non-None fallback callable")
         if self.fallback is not None and not callable(self.fallback):

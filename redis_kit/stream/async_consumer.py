@@ -22,6 +22,13 @@ class AsyncStreamConsumer(StreamConsumerBase):
             raise StreamError(f"Failed to create group '{self._group}'") from e
 
     async def listen(self, count: int = 10, block: int = 5000) -> AsyncIterator[StreamMessage]:
+        """Read new messages from the stream.
+
+        When ``auto_ack=True``, messages are acknowledged **after** being
+        yielded (not before). If the consumer breaks out of the loop or
+        raises an exception, the last yielded message will NOT be acked
+        and will remain in the pending entries list for redelivery.
+        """
         results = await self._client.xreadgroup(
             self._group,
             self._consumer_name,

@@ -27,7 +27,12 @@ class NamespaceConfig:
     separator: str = ":"
 
     def build_key(self, *parts: str) -> str:
-        """Build a namespaced Redis key from parts."""
+        """Build a namespaced Redis key from parts.
+
+        Raises ValueError if no key parts are provided.
+        """
+        if not parts:
+            raise ValueError("build_key() requires at least one key part")
         all_parts = (self.prefix, *parts) if self.prefix else parts
         return self.separator.join(all_parts)
 

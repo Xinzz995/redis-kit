@@ -57,7 +57,11 @@ class AsyncCache(CacheBase):
         return result
 
     async def _get_raw(self, key: str) -> Any:
-        """Internal get returning _MISS sentinel for cache miss."""
+        """Get raw value, returning _MISS sentinel for cache miss.
+
+        This is an internal API used by AsyncTieredCache. Returns ``_MISS``
+        (from ``redis_kit.cache._logic``) when the key is not found.
+        """
         full_key = self._make_key(key)
         self._notify_hooks("before", "GET", key, args=())
         start = time.monotonic()
@@ -100,7 +104,8 @@ class AsyncCache(CacheBase):
             await self._client.delete(self._make_key(key))
         except Exception as e:
             self._notify_hooks("error", "DELETE", key, error=e)
-            raise
+            await self._handle_fallback(e, "DELETE", key)
+            return
         duration = (time.monotonic() - start) * 1000
         self._notify_hooks("after", "DELETE", key, result=None, duration_ms=duration)
 
@@ -125,6 +130,15 @@ class AsyncCache(CacheBase):
         factory: Callable[[], Any],
         ttl: str | int | None = None,
     ) -> Any:
+        """Get cached value or compute via factory and cache the result.
+
+        .. warning::
+
+            This method does not protect against cache stampede (thundering herd).
+            Under high concurrency, multiple requests may invoke ``factory()``
+            simultaneously on cache miss. Use ``AsyncLock`` to guard expensive
+            factories if this is a concern.
+        """
         value = await self._get_raw(key)
         if value is not _MISS:
             return value
@@ -150,7 +164,12 @@ class AsyncCache(CacheBase):
         return result
 
     async def _get_many_raw(self, keys: list[str]) -> dict[str, Any]:
-        """Internal get_many returning _MISS sentinel for cache misses."""
+        """Get many raw values, returning _MISS sentinel for cache misses.
+
+        This is an internal API used by AsyncTieredCache.
+        """
+        if not keys:
+            return {}
         full_keys = [self._make_key(k) for k in keys]
         if self._is_cluster:
             pipe = self._client.pipeline(transaction=False)
@@ -165,7 +184,6 @@ class AsyncCache(CacheBase):
         return result
 
     async def set_many(self, mapping: dict[str, Any], ttl: str | int | None = None) -> None:
-        resolved_ttl = self._resolve_ttl(ttl)
         keys_str = ",".join(mapping.keys())
         self._notify_hooks("before", "SET_MANY", keys_str, args=(mapping, ttl))
         start = time.monotonic()
@@ -174,6 +192,7 @@ class AsyncCache(CacheBase):
             for key, value in mapping.items():
                 full_key = self._make_key(key)
                 encoded = self._pipeline.encode(value)
+                resolved_ttl = self._resolve_ttl(ttl)
                 if resolved_ttl is not None and resolved_ttl > 0:
                     pipe.setex(full_key, resolved_ttl, encoded)
                 else:

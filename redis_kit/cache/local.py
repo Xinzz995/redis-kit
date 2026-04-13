@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import threading
 import time
 from collections import OrderedDict
@@ -40,6 +41,19 @@ class LRUCache:
             self._data[key] = (value, expire_at)
             while len(self._data) > self._maxsize:
                 self._data.popitem(last=False)
+            # Probabilistic expired-entry cleanup: ~5% of set() calls
+            if len(self._data) > 10 and random.random() < 0.05:
+                self._evict_expired_sample()
+
+    def _evict_expired_sample(self) -> None:
+        """Remove a sample of expired entries (called under lock)."""
+        now = time.monotonic()
+        keys = list(self._data.keys())
+        sample_size = min(10, len(keys))
+        for k in random.sample(keys, sample_size):
+            entry = self._data.get(k)
+            if entry is not None and now > entry[1]:
+                del self._data[k]
 
     def delete(self, key: str) -> None:
         with self._lock:

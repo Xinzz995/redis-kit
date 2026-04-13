@@ -36,8 +36,8 @@ jobs:
       - name: Test
         run: uv run pytest -v --tb=short
 
-  test-otel:
-    name: Test with OpenTelemetry
+  test-all-extras:
+    name: Test with all optional dependencies
     runs-on: ubuntu-latest
 
     steps:
@@ -49,8 +49,8 @@ jobs:
       - name: Set up Python
         run: uv python install 3.11
 
-      - name: Install dependencies (dev + otel)
-        run: uv sync --extra dev --extra otel
+      - name: Install dependencies (dev + all extras)
+        run: uv sync --extra dev --extra all
 
-      - name: Test OTel hooks
-        run: uv run pytest tests/test_observability.py -v --tb=short
+      - name: Test (all extras enabled)
+        run: uv run pytest -v --tb=short

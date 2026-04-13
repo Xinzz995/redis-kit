@@ -9,7 +9,13 @@ try:
     _span_stack_var: contextvars.ContextVar[list[trace.Span]] = contextvars.ContextVar("_otel_span_stack")
 
     class OpenTelemetryHook:
-        """Creates OpenTelemetry spans for Redis operations."""
+        """Creates OpenTelemetry spans for Redis operations.
+
+        Uses a per-context LIFO stack to match ``before()``/``after()`` calls.
+        This is safe under ``asyncio`` (each task gets its own ``ContextVar``
+        copy) and for non-nested calls in threaded code. Nested Redis calls
+        within the same context must complete in LIFO order.
+        """
 
         def __init__(self, service_name: str = "redis-kit") -> None:
             self._tracer = trace.get_tracer(service_name)
