@@ -135,8 +135,7 @@ class Cache(CacheBase):
             raw_result = self._get_many_raw(keys)
         except Exception as e:
             self._notify_hooks("error", "GET_MANY", keys_str, error=e)
-            self._handle_fallback(e, "GET_MANY", keys_str, default={k: None for k in keys})
-            return {k: None for k in keys}
+            return self._handle_fallback(e, "GET_MANY", keys_str, default={k: None for k in keys})
         duration = (time.monotonic() - start) * 1000
         result = {k: (v if v is not _MISS else None) for k, v in raw_result.items()}
         self._notify_hooks("after", "GET_MANY", keys_str, result=result, duration_ms=duration)

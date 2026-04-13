@@ -143,8 +143,7 @@ class AsyncCache(CacheBase):
             raw_result = await self._get_many_raw(keys)
         except Exception as e:
             self._notify_hooks("error", "GET_MANY", keys_str, error=e)
-            await self._handle_fallback(e, "GET_MANY", keys_str, default={k: None for k in keys})
-            return {k: None for k in keys}
+            return await self._handle_fallback(e, "GET_MANY", keys_str, default={k: None for k in keys})
         duration = (time.monotonic() - start) * 1000
         result = {k: (v if v is not _MISS else None) for k, v in raw_result.items()}
         self._notify_hooks("after", "GET_MANY", keys_str, result=result, duration_ms=duration)
@@ -195,6 +194,12 @@ class AsyncCache(CacheBase):
         duration = (time.monotonic() - start) * 1000
         self._notify_hooks("after", "SET_MANY", keys_str, result=None, duration_ms=duration)
 
+    async def _flush_delete_batch(self, batch: list[bytes | str]) -> None:
+        if self._is_cluster:
+            await asyncio.gather(*(self._client.delete(k) for k in batch))
+        else:
+            await self._client.delete(*batch)
+
     async def delete_pattern(self, pattern: str, batch_size: int = 100) -> int:
         full_pattern = self._make_key(pattern)
         self._notify_hooks("before", "DELETE_PATTERN", pattern, args=(pattern,))
@@ -203,23 +208,13 @@ class AsyncCache(CacheBase):
             count = 0
             batch: list[bytes | str] = []
             async for key in self._client.scan_iter(match=full_pattern, count=batch_size):
-                if self._is_cluster:
-                    batch.append(key)
-                    if len(batch) >= batch_size:
-                        await asyncio.gather(*(self._client.delete(k) for k in batch))
-                        count += len(batch)
-                        batch = []
-                    continue
                 batch.append(key)
                 if len(batch) >= batch_size:
-                    await self._client.delete(*batch)
+                    await self._flush_delete_batch(batch)
                     count += len(batch)
                     batch = []
             if batch:
-                if self._is_cluster:
-                    await asyncio.gather(*(self._client.delete(k) for k in batch))
-                else:
-                    await self._client.delete(*batch)
+                await self._flush_delete_batch(batch)
                 count += len(batch)
         except Exception as e:
             self._notify_hooks("error", "DELETE_PATTERN", pattern, error=e)
