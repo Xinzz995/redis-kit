@@ -3,11 +3,14 @@ from __future__ import annotations
 import asyncio
 import functools
 import inspect
-from typing import TYPE_CHECKING, Any
+import logging
+from typing import TYPE_CHECKING, Any, Literal
 
 from redis_kit.cache._logic import _MISS, DataPipeline, apply_jitter, parse_ttl
 from redis_kit.compressors.base import Compressor
 from redis_kit.serializers.base import Serializer
+
+_logger = logging.getLogger("redis_kit.cache")
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -24,7 +27,7 @@ def cached(
     bypass: Callable[..., bool] | None = None,
     prefix: str = "",
     ttl_jitter: float = 0.1,
-    on_error: str = "raise",
+    on_error: Literal["raise", "execute"] = "raise",
 ) -> Callable:
     """Decorator to cache function results in Redis.
 
@@ -109,6 +112,7 @@ def cached(
                     cache_key = _resolve_key(bound_args)
                 except Exception:
                     if on_error == "execute":
+                        _logger.debug("@cached key resolution failed, executing directly", exc_info=True)
                         return await func(*args, **kwargs)
                     raise
 
@@ -119,6 +123,7 @@ def cached(
                             return value
                     except Exception:
                         if on_error == "execute":
+                            _logger.debug("@cached read failed for '%s', executing directly", cache_key, exc_info=True)
                             return await func(*args, **kwargs)
                         raise
 
@@ -126,7 +131,9 @@ def cached(
                 try:
                     await _async_write_cache(cache_key, result, _resolve_ttl(bound_args))
                 except Exception:
-                    if on_error != "execute":
+                    if on_error == "execute":
+                        _logger.debug("@cached write failed for '%s', skipping", cache_key, exc_info=True)
+                    else:
                         raise
                 return result
 
@@ -141,6 +148,7 @@ def cached(
                     cache_key = _resolve_key(bound_args)
                 except Exception:
                     if on_error == "execute":
+                        _logger.debug("@cached key resolution failed, executing directly", exc_info=True)
                         return func(*args, **kwargs)
                     raise
 
@@ -151,6 +159,7 @@ def cached(
                             return value
                     except Exception:
                         if on_error == "execute":
+                            _logger.debug("@cached read failed for '%s', executing directly", cache_key, exc_info=True)
                             return func(*args, **kwargs)
                         raise
 
@@ -158,7 +167,9 @@ def cached(
                 try:
                     _write_cache(cache_key, result, _resolve_ttl(bound_args))
                 except Exception:
-                    if on_error != "execute":
+                    if on_error == "execute":
+                        _logger.debug("@cached write failed for '%s', skipping", cache_key, exc_info=True)
+                    else:
                         raise
                 return result
 

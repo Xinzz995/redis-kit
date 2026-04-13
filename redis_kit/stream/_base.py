@@ -37,6 +37,21 @@ class StreamConsumerBase:
         self._auto_ack = auto_ack
 
     @staticmethod
+    def _parse_autoclaim_messages(messages_data: list, stream: str, consumer: Any) -> list:
+        """Parse xautoclaim message tuples into StreamMessage objects."""
+        from redis_kit.stream.message import StreamMessage, decode_stream_data
+
+        return [
+            StreamMessage(
+                id=msg_id.decode() if isinstance(msg_id, bytes) else msg_id,
+                data=decode_stream_data(data),
+                stream=stream,
+                _consumer=consumer,
+            )
+            for msg_id, data in messages_data
+        ]
+
+    @staticmethod
     def _parse_pending_entries(result: list[dict]) -> list[dict]:
         return [
             {

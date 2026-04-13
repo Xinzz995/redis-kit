@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from redis_kit.cache._base import CacheBase
-from redis_kit.cache._logic import _MISS
+from redis_kit.cache._logic import _MISS, apply_jitter, parse_ttl
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -184,6 +184,7 @@ class AsyncCache(CacheBase):
         return result
 
     async def set_many(self, mapping: dict[str, Any], ttl: str | int | None = None) -> None:
+        base_ttl = parse_ttl(ttl) if ttl is not None else None
         keys_str = ",".join(mapping.keys())
         self._notify_hooks("before", "SET_MANY", keys_str, args=(mapping, ttl))
         start = time.monotonic()
@@ -192,7 +193,7 @@ class AsyncCache(CacheBase):
             for key, value in mapping.items():
                 full_key = self._make_key(key)
                 encoded = self._pipeline.encode(value)
-                resolved_ttl = self._resolve_ttl(ttl)
+                resolved_ttl = apply_jitter(base_ttl, self._ttl_jitter) if base_ttl is not None else None
                 if resolved_ttl is not None and resolved_ttl > 0:
                     pipe.setex(full_key, resolved_ttl, encoded)
                 else:

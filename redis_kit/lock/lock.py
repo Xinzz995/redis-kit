@@ -5,8 +5,9 @@ import os
 import threading
 import time
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from typing import Any
 
 from redis_kit.exceptions import LockAcquireError, LockReleaseError
 from redis_kit.lock._base import LockBase
@@ -35,6 +36,17 @@ class _WatchdogHandle:
 class Lock(LockBase):
     """Redis distributed lock with context manager support."""
 
+    def _spin_acquire(self, attempt: Callable[[], Any], blocking_timeout: float | None) -> bool:
+        """Spin-wait for a lock acquisition attempt, with optional timeout."""
+        if blocking_timeout is not None:
+            deadline = time.monotonic() + blocking_timeout
+            while time.monotonic() < deadline:
+                if attempt():
+                    return True
+                time.sleep(0.05)
+            return False
+        return bool(attempt())
+
     @contextmanager
     def __call__(
         self,
@@ -50,9 +62,15 @@ class Lock(LockBase):
 
         if reentrant:
             owner = f"thread:{os.getpid()}:{threading.current_thread().ident}"
-            acquired = self._acquire_reentrant(key, owner, timeout, blocking_timeout)
+            acquired = self._spin_acquire(
+                lambda: self._reentrant_acquire_script(keys=[key], args=[owner, timeout]),
+                blocking_timeout,
+            )
         else:
-            acquired = self._acquire_basic(key, owner, timeout, blocking_timeout)
+            acquired = self._spin_acquire(
+                lambda: self._client.set(key, owner, nx=True, ex=timeout),
+                blocking_timeout,
+            )
 
         if not acquired:
             raise LockAcquireError(f"Failed to acquire lock '{name}'")
@@ -82,30 +100,10 @@ class Lock(LockBase):
             else:
                 self._release_basic(key, owner, name)
 
-    def _acquire_basic(self, key: str, owner: str, timeout: int, blocking_timeout: float | None) -> bool:
-        if blocking_timeout is not None:
-            deadline = time.monotonic() + blocking_timeout
-            while time.monotonic() < deadline:
-                if self._client.set(key, owner, nx=True, ex=timeout):
-                    return True
-                time.sleep(0.05)
-            return False
-        return bool(self._client.set(key, owner, nx=True, ex=timeout))
-
     def _release_basic(self, key: str, owner: str, name: str) -> None:
         result = self._release_script(keys=[key], args=[owner])
         if not result:
             raise LockReleaseError(f"Failed to release lock '{name}': not owner")
-
-    def _acquire_reentrant(self, key: str, owner: str, timeout: int, blocking_timeout: float | None) -> bool:
-        if blocking_timeout is not None:
-            deadline = time.monotonic() + blocking_timeout
-            while time.monotonic() < deadline:
-                if self._reentrant_acquire_script(keys=[key], args=[owner, timeout]):
-                    return True
-                time.sleep(0.05)
-            return False
-        return bool(self._reentrant_acquire_script(keys=[key], args=[owner, timeout]))
 
     def _release_reentrant(self, key: str, owner: str, name: str) -> None:
         result = self._reentrant_release_script(keys=[key], args=[owner])
@@ -148,16 +146,10 @@ class Lock(LockBase):
         """
         key = self._make_key(name) + ":rwlock"
         writer_key = key + ":writer"
-        if blocking_timeout is not None:
-            deadline = time.monotonic() + blocking_timeout
-            acquired = False
-            while time.monotonic() < deadline:
-                if self._read_acquire_script(keys=[key, writer_key], args=[timeout]):
-                    acquired = True
-                    break
-                time.sleep(0.05)
-        else:
-            acquired = self._read_acquire_script(keys=[key, writer_key], args=[timeout])
+        acquired = self._spin_acquire(
+            lambda: self._read_acquire_script(keys=[key, writer_key], args=[timeout]),
+            blocking_timeout,
+        )
         if not acquired:
             raise LockAcquireError(f"Failed to acquire read lock '{name}': writer active")
         try:
@@ -183,13 +175,12 @@ class Lock(LockBase):
         writer_key = key + ":writer"
         owner = uuid.uuid4().hex
         renew_timer: _WatchdogHandle | None = None
-        deadline = time.monotonic() + blocking_timeout
 
-        while time.monotonic() < deadline:
-            if self._write_acquire_script(keys=[key, writer_key], args=[owner, timeout]):
-                break
-            time.sleep(0.05)
-        else:
+        acquired = self._spin_acquire(
+            lambda: self._write_acquire_script(keys=[key, writer_key], args=[owner, timeout]),
+            blocking_timeout,
+        )
+        if not acquired:
             raise LockAcquireError(f"Failed to acquire write lock '{name}'")
 
         try:

@@ -4,20 +4,25 @@ from typing import Any
 
 import msgpack
 
-from redis_kit.exceptions import SerializationError
+from redis_kit.serializers.base import wrap_serialization
+
+_DUMP_ERRORS = (TypeError, ValueError)
+_LOAD_ERRORS = (msgpack.UnpackException, TypeError, ValueError)
 
 
 class MsgpackSerializer:
     """MessagePack serializer. Compact binary format, fast."""
 
     def dumps(self, value: Any) -> bytes:
-        try:
-            return msgpack.packb(value, use_bin_type=True)
-        except (TypeError, ValueError) as e:
-            raise SerializationError(f"Msgpack serialization failed: {e}") from e
+        return wrap_serialization(
+            lambda: msgpack.packb(value, use_bin_type=True),
+            _DUMP_ERRORS,
+            "Msgpack serialization failed",
+        )
 
     def loads(self, data: bytes) -> Any:
-        try:
-            return msgpack.unpackb(data, raw=False)
-        except (msgpack.UnpackException, TypeError, ValueError) as e:
-            raise SerializationError(f"Msgpack deserialization failed: {e}") from e
+        return wrap_serialization(
+            lambda: msgpack.unpackb(data, raw=False),
+            _LOAD_ERRORS,
+            "Msgpack deserialization failed",
+        )

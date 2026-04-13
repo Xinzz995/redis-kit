@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 
 @dataclass(frozen=True)
@@ -15,7 +15,7 @@ class FallbackPolicy:
     log_on_fallback: bool = True
     logger: logging.Logger = field(default_factory=lambda: logging.getLogger("redis_kit"))
 
-    _VALID_POLICIES = ("raise", "return_none", "callback")
+    _VALID_POLICIES: ClassVar[tuple[str, ...]] = ("raise", "return_none", "callback")
 
     def __post_init__(self) -> None:
         if self.on_connection_error not in self._VALID_POLICIES:

@@ -5,7 +5,7 @@ import functools
 import inspect
 import re
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 from redis_kit.exceptions import RateLimitExceeded
 from redis_kit.ratelimit.async_sliding_window import AsyncSlidingWindowLimiter
@@ -43,7 +43,7 @@ def rate_limit(
     client: Any,  # redis.Redis for sync functions, redis.asyncio.Redis for async functions
     key: str | Callable[..., str],
     limit: str,
-    algorithm: str = "sliding_window",
+    algorithm: Literal["sliding_window", "token_bucket"] = "sliding_window",
     prefix: str = "redis_kit:rl",
 ) -> Callable:
     """Decorator to apply rate limiting to a function.

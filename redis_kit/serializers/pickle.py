@@ -5,11 +5,14 @@ import pickle
 import threading
 from typing import Any
 
-from redis_kit.exceptions import SerializationError
+from redis_kit.serializers.base import wrap_serialization
 
 _logger = logging.getLogger("redis_kit.serializers")
 _pickle_warned = False
 _pickle_warned_lock = threading.Lock()
+
+_DUMP_ERRORS = (pickle.PicklingError, TypeError, AttributeError)
+_LOAD_ERRORS = (pickle.UnpicklingError, TypeError, EOFError)
 
 
 class PickleSerializer:
@@ -35,13 +38,15 @@ class PickleSerializer:
                     )
 
     def dumps(self, value: Any) -> bytes:
-        try:
-            return pickle.dumps(value, protocol=self._protocol)
-        except (pickle.PicklingError, TypeError, AttributeError) as e:
-            raise SerializationError(f"Pickle serialization failed: {e}") from e
+        return wrap_serialization(
+            lambda: pickle.dumps(value, protocol=self._protocol),
+            _DUMP_ERRORS,
+            "Pickle serialization failed",
+        )
 
     def loads(self, data: bytes) -> Any:
-        try:
-            return pickle.loads(data)  # noqa: S301
-        except (pickle.UnpicklingError, TypeError, EOFError) as e:
-            raise SerializationError(f"Pickle deserialization failed: {e}") from e
+        return wrap_serialization(
+            lambda: pickle.loads(data),  # noqa: S301
+            _LOAD_ERRORS,
+            "Pickle deserialization failed",
+        )

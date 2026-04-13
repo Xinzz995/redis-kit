@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import random
 import threading
 import time
@@ -46,14 +47,18 @@ class LRUCache:
                 self._evict_expired_sample()
 
     def _evict_expired_sample(self) -> None:
-        """Remove a sample of expired entries (called under lock)."""
+        """Remove a sample of expired entries (called under lock).
+
+        Uses step-based sampling to avoid copying the entire key list.
+        """
         now = time.monotonic()
-        keys = list(self._data.keys())
-        sample_size = min(10, len(keys))
-        for k in random.sample(keys, sample_size):
-            entry = self._data.get(k)
-            if entry is not None and now > entry[1]:
-                del self._data[k]
+        step = max(1, len(self._data) // 10)
+        expired = [
+            k for k in itertools.islice(self._data, 0, None, step)
+            if now > self._data[k][1]
+        ]
+        for k in expired:
+            del self._data[k]
 
     def delete(self, key: str) -> None:
         with self._lock:

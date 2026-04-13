@@ -30,3 +30,7 @@ class RepositoryBase:
 
     def _history_key(self, entity_id: str) -> str:
         return f"{self._make_key(entity_id)}:history"
+
+    def _max_history_arg(self) -> str:
+        """Return max_history as a Lua-compatible string arg (-1 = unlimited)."""
+        return str(self._max_history) if self._max_history is not None else "-1"

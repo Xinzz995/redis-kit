@@ -1,4 +1,13 @@
-"""Lua scripts for Repository optimistic locking."""
+"""Lua scripts for Repository optimistic locking.
+
+NOTE: OPTIMISTIC_LOCK_SET and OPTIMISTIC_LOCK_PARTIAL_SET share identical
+history-append logic (cjson.encode + lpush + ltrim). When modifying the
+history section, update BOTH scripts to keep them in sync.
+
+These scripts require a standard Redis server with cjson support (Redis 2.6+).
+Serverless Redis proxies (e.g. Upstash) with incomplete Lua/cjson support
+are not compatible.
+"""
 
 # Atomic version check + full hash write + history append
 # KEYS[1] = entity key

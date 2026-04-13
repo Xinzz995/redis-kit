@@ -17,10 +17,6 @@ T = TypeVar("T", bound=BaseModel)
 class AsyncRepository(RepositoryBase):
     """Async Redis-backed repository with CRUD, versioning, soft delete, and audit."""
 
-    def _max_history_arg(self) -> str:
-        """Return max_history as a Lua-compatible string arg (-1 = unlimited)."""
-        return str(self._max_history) if self._max_history is not None else "-1"
-
     async def save(self, entity: T) -> T:
         now = datetime.now(tz=UTC)
 

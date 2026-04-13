@@ -5,8 +5,9 @@ import logging
 import os
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from typing import Any
 
 from redis_kit.exceptions import LockAcquireError, LockReleaseError
 from redis_kit.lock._base import LockBase
@@ -16,6 +17,17 @@ _logger = logging.getLogger("redis_kit")
 
 class AsyncLock(LockBase):
     """Async Redis distributed lock with async context manager support."""
+
+    async def _spin_acquire(self, attempt: Callable[[], Any], blocking_timeout: float | None) -> bool:
+        """Spin-wait for a lock acquisition attempt, with optional timeout."""
+        if blocking_timeout is not None:
+            deadline = time.monotonic() + blocking_timeout
+            while time.monotonic() < deadline:
+                if await attempt():
+                    return True
+                await asyncio.sleep(0.05)
+            return False
+        return bool(await attempt())
 
     @asynccontextmanager
     async def __call__(
@@ -33,9 +45,15 @@ class AsyncLock(LockBase):
         if reentrant:
             task = asyncio.current_task()
             owner = f"task:{os.getpid()}:{id(task)}" if task else owner
-            acquired = await self._acquire_reentrant(key, owner, timeout, blocking_timeout)
+            acquired = await self._spin_acquire(
+                lambda: self._reentrant_acquire_script(keys=[key], args=[owner, timeout]),
+                blocking_timeout,
+            )
         else:
-            acquired = await self._acquire_basic(key, owner, timeout, blocking_timeout)
+            acquired = await self._spin_acquire(
+                lambda: self._client.set(key, owner, nx=True, ex=timeout),
+                blocking_timeout,
+            )
 
         if not acquired:
             raise LockAcquireError(f"Failed to acquire lock '{name}'")
@@ -65,30 +83,10 @@ class AsyncLock(LockBase):
             else:
                 await self._release_basic(key, owner, name)
 
-    async def _acquire_basic(self, key: str, owner: str, timeout: int, blocking_timeout: float | None) -> bool:
-        if blocking_timeout is not None:
-            deadline = time.monotonic() + blocking_timeout
-            while time.monotonic() < deadline:
-                if await self._client.set(key, owner, nx=True, ex=timeout):
-                    return True
-                await asyncio.sleep(0.05)
-            return False
-        return bool(await self._client.set(key, owner, nx=True, ex=timeout))
-
     async def _release_basic(self, key: str, owner: str, name: str) -> None:
         result = await self._release_script(keys=[key], args=[owner])
         if not result:
             raise LockReleaseError(f"Failed to release lock '{name}': not owner")
-
-    async def _acquire_reentrant(self, key: str, owner: str, timeout: int, blocking_timeout: float | None) -> bool:
-        if blocking_timeout is not None:
-            deadline = time.monotonic() + blocking_timeout
-            while time.monotonic() < deadline:
-                if await self._reentrant_acquire_script(keys=[key], args=[owner, timeout]):
-                    return True
-                await asyncio.sleep(0.05)
-            return False
-        return bool(await self._reentrant_acquire_script(keys=[key], args=[owner, timeout]))
 
     async def _release_reentrant(self, key: str, owner: str, name: str) -> None:
         result = await self._reentrant_release_script(keys=[key], args=[owner])
@@ -118,16 +116,10 @@ class AsyncLock(LockBase):
         """
         key = self._make_key(name) + ":rwlock"
         writer_key = key + ":writer"
-        if blocking_timeout is not None:
-            deadline = time.monotonic() + blocking_timeout
-            acquired = False
-            while time.monotonic() < deadline:
-                if await self._read_acquire_script(keys=[key, writer_key], args=[timeout]):
-                    acquired = True
-                    break
-                await asyncio.sleep(0.05)
-        else:
-            acquired = await self._read_acquire_script(keys=[key, writer_key], args=[timeout])
+        acquired = await self._spin_acquire(
+            lambda: self._read_acquire_script(keys=[key, writer_key], args=[timeout]),
+            blocking_timeout,
+        )
         if not acquired:
             raise LockAcquireError(f"Failed to acquire read lock '{name}': writer active")
         try:
@@ -153,13 +145,12 @@ class AsyncLock(LockBase):
         writer_key = key + ":writer"
         owner = uuid.uuid4().hex
         renew_task: asyncio.Task[None] | None = None
-        deadline = time.monotonic() + blocking_timeout
 
-        while time.monotonic() < deadline:
-            if await self._write_acquire_script(keys=[key, writer_key], args=[owner, timeout]):
-                break
-            await asyncio.sleep(0.05)
-        else:
+        acquired = await self._spin_acquire(
+            lambda: self._write_acquire_script(keys=[key, writer_key], args=[owner, timeout]),
+            blocking_timeout,
+        )
+        if not acquired:
             raise LockAcquireError(f"Failed to acquire write lock '{name}'")
 
         try:

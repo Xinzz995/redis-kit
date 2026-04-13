@@ -69,11 +69,7 @@ class StreamConsumer(StreamConsumerBase):
         )
         # xautoclaim returns [next_start_id, [(id, data), ...], deleted_ids]
         messages_data = result[1] if len(result) > 1 else []
-        messages = []
-        for msg_id, data in messages_data:
-            m_id = msg_id.decode() if isinstance(msg_id, bytes) else msg_id
-            messages.append(StreamMessage(id=m_id, data=decode_stream_data(data), stream=self._stream, _consumer=self))
-        return messages
+        return self._parse_autoclaim_messages(messages_data, self._stream, self)
 
     def _ack(self, msg_id: str) -> None:
         self._client.xack(self._stream, self._group, msg_id)

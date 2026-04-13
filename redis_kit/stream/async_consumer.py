@@ -75,11 +75,7 @@ class AsyncStreamConsumer(StreamConsumerBase):
             count=count,
         )
         messages_data = result[1] if len(result) > 1 else []
-        messages = []
-        for msg_id, data in messages_data:
-            m_id = msg_id.decode() if isinstance(msg_id, bytes) else msg_id
-            messages.append(StreamMessage(id=m_id, data=decode_stream_data(data), stream=self._stream, _consumer=self))
-        return messages
+        return self._parse_autoclaim_messages(messages_data, self._stream, self)
 
     async def destroy_group(self) -> None:
         await self._client.xgroup_destroy(self._stream, self._group)
