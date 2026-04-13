@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, TypeVar
 
 from redis_kit.exceptions import EntityNotFoundError, OptimisticLockError, RepositoryError
-from redis_kit.repository._hash import from_hash, to_hash
+from redis_kit.repository._hash import _NONE_SENTINEL, from_hash, to_hash
 from redis_kit.repository._lua import OPTIMISTIC_LOCK_PARTIAL_SET, OPTIMISTIC_LOCK_SET
 from redis_kit.repository.model import BaseModel
 
@@ -174,7 +174,7 @@ class AsyncRepository:
             "deleted",
             "0",
             "deleted_at",
-            "__NONE__",
+            _NONE_SENTINEL,
             "version",
             str(new_version),
             "updated_at",

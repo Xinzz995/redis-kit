@@ -202,18 +202,18 @@ class TestCache:
         assert count == 2
         assert cache.get("product:1") == "c"
 
-    def test_delete_pattern_cluster_deletes_keys_individually(self):
+    def test_delete_pattern_cluster_uses_pipeline(self):
+        pipe_mock = MagicMock()
         client = MagicMock()
         client.scan_iter.return_value = [b"test:cache:user:1", b"test:cache:user:2"]
+        client.pipeline.return_value = pipe_mock
         cache = Cache(client, prefix="test:cache", ttl_jitter=0, is_cluster=True)
 
         count = cache.delete_pattern("user:*")
 
         assert count == 2
-        assert client.delete.call_args_list == [
-            call(b"test:cache:user:1"),
-            call(b"test:cache:user:2"),
-        ]
+        assert pipe_mock.delete.call_count == 2
+        pipe_mock.execute.assert_called_once()
 
     def test_iter_keys(self):
         cache = self._make_cache()

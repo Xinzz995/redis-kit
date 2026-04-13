@@ -16,16 +16,14 @@ logger = logging.getLogger("redis_kit")
 T = TypeVar("T", bound=BaseModel)
 
 
-_SENTINEL_EMPTY_HINTS: dict[str, type] = {}
+_NONE_SENTINEL = "__NONE__"
+
+_EMPTY_HINTS: types.MappingProxyType[str, type] = types.MappingProxyType({})
 
 
-@functools.lru_cache(maxsize=64)
+@functools.cache
 def _get_type_hints(model_class: type) -> dict[str, type]:
-    """Cached version of typing.get_type_hints for model classes.
-
-    On failure, returns a non-cached empty dict so a retry can succeed
-    if the environment is fixed later.
-    """
+    """Cached type hints for model classes. Unbounded since type objects live as long as the process."""
     return typing.get_type_hints(model_class)
 
 
@@ -35,7 +33,7 @@ def _safe_get_type_hints(model_class: type) -> dict[str, type]:
         return _get_type_hints(model_class)
     except (NameError, AttributeError) as exc:
         logger.warning("Failed to resolve type hints for %s: %s", model_class.__name__, exc)
-        return _SENTINEL_EMPTY_HINTS
+        return _EMPTY_HINTS
 
 
 def to_hash(entity: BaseModel) -> dict[str, str]:
@@ -44,7 +42,7 @@ def to_hash(entity: BaseModel) -> dict[str, str]:
     for f in dataclasses.fields(entity):
         value = getattr(entity, f.name)
         if value is None:
-            result[f.name] = "__NONE__"
+            result[f.name] = _NONE_SENTINEL
         elif isinstance(value, bool):
             result[f.name] = "1" if value else "0"
         elif isinstance(value, datetime):
@@ -74,8 +72,8 @@ def from_hash(data: dict[bytes | str, bytes | str], model_class: type[T]) -> T:
             args = [a for a in typing.get_args(ftype) if a is not type(None)]
             ftype = args[0] if args else ftype
 
-        if raw is None or raw == "__NONE__":
-            if raw == "__NONE__":
+        if raw is None or raw == _NONE_SENTINEL:
+            if raw == _NONE_SENTINEL:
                 kwargs[f.name] = None
             elif f.default is not dataclasses.MISSING:
                 kwargs[f.name] = f.default
