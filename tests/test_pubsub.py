@@ -248,17 +248,17 @@ class TestPubSub:
         assert not thread.is_alive(), "listen() did not stop after stop() was called"
 
     def test_stop_sets_running_false(self, mock_client: MagicMock) -> None:
-        """stop() must set _running to False."""
+        """stop() must clear the _running Event."""
         ps = PubSub(mock_client, prefix="app")
-        assert ps._running is True
+        assert ps._running.is_set()
         ps.stop()
-        assert ps._running is False
+        assert not ps._running.is_set()
 
     def test_close_sets_running_false(self, mock_client: MagicMock) -> None:
-        """close() must set _running to False and close the underlying pubsub."""
+        """close() must clear the _running Event and close the underlying pubsub."""
         ps = PubSub(mock_client, prefix="app")
         ps.close()
-        assert ps._running is False
+        assert not ps._running.is_set()
         ps._pubsub.close.assert_called_once()
 
     def test_listen_passes_timeout_to_get_message(self, mock_client: MagicMock) -> None:
@@ -485,3 +485,20 @@ class TestAsyncPubSub:
         await ps.listen(timeout=3.0)
 
         ps._pubsub.get_message.assert_awaited_with(ignore_subscribe_messages=True, timeout=3.0)
+
+
+# ---------------------------------------------------------------------------
+# threading.Event thread-safety
+# ---------------------------------------------------------------------------
+
+
+def test_pubsub_stop_is_thread_safe(redis_client):
+    """PubSub.stop() should use threading.Event for thread-safe signaling."""
+    from redis_kit.queue.pubsub import PubSub
+
+    pubsub = PubSub(redis_client, prefix="test")
+    assert isinstance(pubsub._running, threading.Event)
+    assert pubsub._running.is_set()
+
+    pubsub.stop()
+    assert not pubsub._running.is_set()

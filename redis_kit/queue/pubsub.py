@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
@@ -19,7 +20,8 @@ class PubSub:
         self._prefix = prefix
         self._pubsub = client.pubsub()
         self._handlers: dict[str, Callable] = {}
-        self._running: bool = True
+        self._running = threading.Event()
+        self._running.set()
 
     def _make_channel(self, channel: str) -> str:
         return f"{self._prefix}:{channel}" if self._prefix else channel
@@ -44,8 +46,8 @@ class PubSub:
         self._handlers.pop(full_channel, None)
 
     def listen(self, timeout: float | None = None) -> None:
-        self._running = True
-        while self._running:
+        self._running.set()
+        while self._running.is_set():
             message = self._pubsub.get_message(ignore_subscribe_messages=True, timeout=timeout or 0.1)
             if message is None:
                 continue
@@ -66,8 +68,8 @@ class PubSub:
 
     def stop(self) -> None:
         """Signal listen() to stop after the current poll cycle."""
-        self._running = False
+        self._running.clear()
 
     def close(self) -> None:
-        self._running = False
+        self._running.clear()
         self._pubsub.close()
