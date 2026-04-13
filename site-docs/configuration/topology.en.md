@@ -12,6 +12,9 @@ conn = ConnectionManager(config=ConnectionConfig(host="localhost", port=6379))
 conn = ConnectionManager(url="redis://localhost:6379/0")
 ```
 
+!!! warning "`url` is standalone-only"
+    The `url` parameter is only supported with `ConnectionConfig` (standalone mode). Passing `url` with `SentinelConfig` or `ClusterConfig` raises `ValueError`.
+
 ## Sentinel
 
 Automatic failover -- transparent to upper-layer modules.

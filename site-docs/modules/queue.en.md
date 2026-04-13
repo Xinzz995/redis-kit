@@ -89,6 +89,9 @@ try:
     msg.ack()
 except Exception:
     msg.nack()  # Return to queue
+
+# Recover messages from crashed consumers
+recovered = rq.recover_stale(max_items=100)
 ```
 
 !!! tip "Consider Redis Streams"

@@ -24,10 +24,12 @@ with lock("resource", timeout=10, reentrant=True):
 ## 读写锁
 
 ```python
-with lock.read("resource"):     # Multiple readers allowed
+# 读锁支持 blocking_timeout 重试等待
+with lock.read("resource", blocking_timeout=5.0):
     data = read_shared_state()
 
-with lock.write("resource"):    # Exclusive writer
+# 写锁支持 auto_renew 自动续期
+with lock.write("resource", auto_renew=True):
     update_shared_state()
 ```
 

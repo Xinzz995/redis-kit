@@ -73,6 +73,16 @@ async def get_product(pid: int) -> dict:
     return await db.query_product(pid)
 ```
 
+### Error Degradation
+
+When Redis is unavailable, `on_error="execute"` skips the cache and runs the function directly:
+
+```python
+@cached(conn.sync_client, key="user:{user_id}", ttl="1h", on_error="execute")
+def get_user(user_id: int) -> dict:
+    return db.query_user(user_id)
+```
+
 ### Callable Key/TTL/Bypass
 
 ```python

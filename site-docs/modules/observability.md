@@ -10,7 +10,8 @@ cache = Cache(conn.sync_client, prefix="myapp", hooks=[metrics])
 
 # After operations...
 metrics.command_count("GET")
-metrics.error_count()
+metrics.error_count()              # 总错误数
+metrics.error_count(command="GET") # 按命令过滤的错误数
 metrics.latency_stats()  # {"count": N, "avg": X, "min": Y, "max": Z}
 ```
 

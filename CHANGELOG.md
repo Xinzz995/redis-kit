@@ -1,5 +1,50 @@
 # Changelog
 
+## [1.0.4] - 2026-04-14
+
+### 修复
+- **Cache**: `set_many` 每个 key 独立 TTL jitter，防止批量写入同时过期导致 cache stampede
+- **Cache**: `_NONE_MARKER` 使用不可打印字符前后缀（`\x00`），消除与用户数据碰撞风险
+- **Cache**: `delete()` 现在遵循 `FallbackPolicy` 降级策略，与 `get()`/`set()` 行为一致
+- **Cache**: `_get_many_raw` 空列表短路返回，避免无意义的 Redis 往返
+- **FallbackPolicy**: `on_connection_error` 添加运行时值域校验，拼写错误立即抛出 `ValueError`
+- **Lock**: 可重入锁 owner 加入 `os.getpid()` 防止跨进程 ID 碰撞
+- **Repository**: 历史写入合并到 Lua 脚本（`cjson.encode` + `lpush`），保证 save/delete/restore 的历史记录原子性
+- **Repository**: `find_all()` 在 Cluster 模式下降级为逐个 `hgetall`，避免跨 slot pipeline 失败
+- **Repository**: `_NONE_SENTINEL` 使用不可打印字符前后缀，消除碰撞风险
+- **Bloom**: 哈希函数从 MD5 切换到 SHA-256，兼容 FIPS 环境
+- **Serializers**: 所有序列化器（JSON/Pickle/Msgpack）统一 wrap 底层异常为 `SerializationError`
+- **Connection**: `url` 与 `SentinelConfig`/`ClusterConfig` 同时使用时抛出 `ValueError`
+- **SlidingWindowBase**: 添加 `limit`/`window` 正值校验，与 `TokenBucketBase` 一致
+
+### 新增
+- **Cache**: `@cached` 装饰器新增 `on_error` 参数（`"raise"` / `"execute"`），支持 Redis 故障时跳过缓存直接执行
+- **Lock**: `read()` 新增 `blocking_timeout` 参数，支持重试等待（与 `write()` API 对称）
+- **Lock**: `write()` 新增 `auto_renew` 参数，支持写锁自动续期
+- **Queue**: `ReliableQueue`/`AsyncReliableQueue` 新增 `recover_stale()` 方法，恢复崩溃消费者遗留的消息
+- **Observability**: `MetricsCollector.error_count()` 支持按命令过滤（`error_count(command="GET")`）
+
+### 重构
+- **Lock**: 提取 `_spin_acquire` 统一 4 处自旋等待模式，消除代码重复
+- **Repository**: `_max_history_arg()` 上移至 `RepositoryBase`，消除 sync/async 子类重复
+- **Serializers**: 提取 `wrap_serialization` 辅助函数统一异常包装模式
+- **Stream**: `claim_stale` 解码逻辑提取为 `StreamConsumerBase._parse_autoclaim_messages`
+- **Cache**: `set_many` TTL 解析优化为解析一次 + 每 key 独立 jitter
+- **LRUCache**: 过期条目清理改用 `itertools.islice` 步进采样，避免全量 keys 拷贝
+- **类型安全**: `@cached.on_error`、`@rate_limit.algorithm` 改为 `Literal` 类型；`FallbackPolicy._VALID_POLICIES` 添加 `ClassVar`
+- **CI**: 添加全量可选依赖测试 job，覆盖 msgpack/lz4/zstd/otel 相关测试
+
+### 杂项
+- 移除误提交的 `__pycache__` 二进制文件
+- Lua 脚本添加同步维护注释和 `cjson` 兼容性说明
+- `@cached` 装饰器 `on_error="execute"` 降级路径添加 `logger.debug` 日志
+- `BaseModel` docstring 引导使用 `dataclasses.replace()` 更新实体
+- Stream `listen()` 文档说明 `auto_ack` 为「处理后 ACK」语义
+- 文档站（中英双语）同步更新所有变更
+
+### 统计
+- 463 tests，0 failures
+
 ## [1.0.3] - 2026-04-13
 
 ### 修复

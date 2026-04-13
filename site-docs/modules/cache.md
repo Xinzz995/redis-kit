@@ -73,6 +73,16 @@ async def get_product(pid: int) -> dict:
     return await db.query_product(pid)
 ```
 
+### 错误降级
+
+当 Redis 不可用时，`on_error="execute"` 可跳过缓存直接执行函数：
+
+```python
+@cached(conn.sync_client, key="user:{user_id}", ttl="1h", on_error="execute")
+def get_user(user_id: int) -> dict:
+    return db.query_user(user_id)
+```
+
 ### 可调用的 Key/TTL/Bypass
 
 ```python

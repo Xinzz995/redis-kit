@@ -29,7 +29,7 @@ bf.reset()  # Delete the underlying Redis key, clearing the filter
 
 ## How It Works
 
-- Uses double hashing technique (two MD5-based hashes to derive k offsets), faster than per-iteration SHA-256
+- Uses double hashing technique (two SHA-256-based hashes to derive k offsets), FIPS-compatible
 - Pipeline-based SETBIT/GETBIT operations for improved performance
 - `exists_many` uses a single pipeline batch check instead of N independent calls
 - Automatically calculates optimal bit array size and hash function count based on `expected_items` and `false_positive_rate`

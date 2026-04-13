@@ -42,3 +42,7 @@ cache = Cache(
 ```
 
 Data pipeline: `value -> serializer.dumps() -> compressor.compress() -> Redis`
+
+## Error Handling
+
+All serializers raise `SerializationError` on serialization/deserialization failures, with the original exception chained via `from`. No need to catch library-specific exception types.

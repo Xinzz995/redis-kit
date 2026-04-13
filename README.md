@@ -12,10 +12,10 @@ Enterprise-grade Python Redis toolkit with sync/async dual-mode APIs.
 
 ## Features
 
-- **Cache** — Get/Set/Delete, TTL management, batch operations, SCAN-based iteration, `@cached` decorator with `.invalidate()`, BoundCache, TTL jitter (anti-avalanche), None caching (anti-penetration), FallbackPolicy degradation (raise/return_none/callback), full hook lifecycle (before/after/error)
-- **Distributed Lock** — Basic lock, reentrant lock, read-write lock, watchdog auto-renewal, Lua-scripted atomic operations, exception-safe context manager
-- **Queue** — PubSub (with graceful `stop()` and `listen(timeout=)`), DelayQueue (Sorted Set), ReliableQueue (LMOVE + ack/nack)
-- **Bloom Filter** — Double hashing (MD5-based), pipeline-based bit operations, configurable false positive rate, `reset()`
+- **Cache** — Get/Set/Delete, TTL management, batch operations, SCAN-based iteration, `@cached` decorator with `.invalidate()` and `on_error` degradation, BoundCache, TTL jitter (anti-avalanche), None caching (anti-penetration), FallbackPolicy degradation (raise/return_none/callback), full hook lifecycle (before/after/error)
+- **Distributed Lock** — Basic lock, reentrant lock, read-write lock (with `blocking_timeout` and `auto_renew`), watchdog auto-renewal, Lua-scripted atomic operations, exception-safe context manager
+- **Queue** — PubSub (with graceful `stop()` and `listen(timeout=)`), DelayQueue (Sorted Set), ReliableQueue (LMOVE + ack/nack + `recover_stale()`)
+- **Bloom Filter** — Double hashing (SHA-256), pipeline-based bit operations, configurable false positive rate, `reset()`
 - **Counter & ID Generator** — Atomic INCR/DECR, BoundCounter, zero-padded ID generation
 - **Session Manager** — Redis Hash per session, JSON serialization (type-preserving), CRUD, TTL refresh, custom ID generator
 - **Rate Limiter** — Token bucket (burst-tolerant) and sliding window (exact count), Lua-scripted with server-side `TIME`, `@rate_limit` decorator
@@ -84,6 +84,11 @@ async def get_product(pid: int) -> dict:
 # Cache invalidation
 get_user.invalidate(user_id=1)
 await get_product.invalidate(pid=42)
+
+# Graceful degradation — skip cache on Redis failure
+@cached(conn.sync_client, key="user:{user_id}", ttl="1h", on_error="execute")
+def get_user_safe(user_id: int) -> dict:
+    return db.query_user(user_id)
 ```
 
 TTL strings must be fully valid. Inputs like `"1hfoo"` raise `ValueError` instead of being partially parsed.
@@ -108,12 +113,12 @@ with lock("resource", timeout=10, reentrant=True):
 with lock("resource", timeout=30, auto_renew=True):
     do_long_running_work()  # Lock auto-extends every 10s
 
-# Read-write lock
-with lock.read("resource"):
+# Read-write lock (with optional blocking_timeout for reads)
+with lock.read("resource", blocking_timeout=5.0):
     data = read_shared_state()
 
-with lock.write("resource"):
-    update_shared_state()
+with lock.write("resource", auto_renew=True):
+    update_shared_state()  # Writer lock auto-extends
 
 # Exception-safe: all context managers (lock, read, write) never mask your exception
 try:
@@ -149,6 +154,9 @@ try:
     msg.ack()
 except Exception:
     msg.nack()  # Return to queue
+
+# Recover messages from crashed consumers
+recovered = rq.recover_stale(max_items=100)
 
 # PubSub
 pubsub = PubSub(conn.sync_client, prefix="myapp")
@@ -230,7 +238,8 @@ cache = Cache(conn.sync_client, prefix="myapp", hooks=[metrics])
 
 # After some operations...
 metrics.command_count("GET")
-metrics.error_count()
+metrics.error_count()              # Total errors
+metrics.error_count(command="GET") # Errors for specific command
 metrics.latency_stats()  # {"count": N, "avg": X, "min": Y, "max": Z}
 
 # OpenTelemetry (requires redis-kit[otel])
@@ -420,6 +429,8 @@ conn = ConnectionManager(config=ConnectionConfig(host="localhost", port=6379))
 conn = ConnectionManager(url="redis://localhost:6379/0")
 ```
 
+> **Note:** The `url` parameter is only supported with `ConnectionConfig` (standalone mode). Passing `url` with `SentinelConfig` or `ClusterConfig` raises `ValueError`.
+
 ### Sentinel
 
 ```python
@@ -506,7 +517,7 @@ policy = FallbackPolicy(on_connection_error="callback", fallback=local_fallback)
 cache = Cache(conn.sync_client, fallback_policy=policy)
 ```
 
-Only triggers for `RedisConnectionError` and `RedisTimeoutError`. Other exceptions always re-raise.
+Only triggers for `RedisConnectionError` and `RedisTimeoutError`. Other exceptions always re-raise. Serialization failures raise `SerializationError` with the original error chained.
 
 Exception hierarchy:
 

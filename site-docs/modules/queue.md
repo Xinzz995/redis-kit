@@ -89,6 +89,9 @@ try:
     msg.ack()
 except Exception:
     msg.nack()  # Return to queue
+
+# 恢复崩溃消费者遗留的消息
+recovered = rq.recover_stale(max_items=100)
 ```
 
 !!! tip "建议考虑 Redis Streams"

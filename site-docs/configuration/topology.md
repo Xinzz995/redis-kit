@@ -12,6 +12,9 @@ conn = ConnectionManager(config=ConnectionConfig(host="localhost", port=6379))
 conn = ConnectionManager(url="redis://localhost:6379/0")
 ```
 
+!!! warning "`url` 仅限单机模式"
+    `url` 参数仅支持 `ConnectionConfig`（单机模式）。与 `SentinelConfig` 或 `ClusterConfig` 同时使用会抛出 `ValueError`。
+
 ## 哨兵模式（Sentinel）
 
 自动故障转移 —— 上层模块无感知。

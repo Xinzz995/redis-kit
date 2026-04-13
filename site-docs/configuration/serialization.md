@@ -42,3 +42,7 @@ cache = Cache(
 ```
 
 数据流水线：`value → serializer.dumps() → compressor.compress() → Redis`
+
+## 错误处理
+
+所有序列化器在序列化/反序列化失败时统一抛出 `SerializationError`，并保留原始异常链（`from`）。无需捕获各底层库的特定异常类型。
