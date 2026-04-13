@@ -6,6 +6,7 @@ import inspect
 from typing import TYPE_CHECKING, Any
 
 from redis_kit.cache._logic import _MISS, DataPipeline, apply_jitter, parse_ttl
+from redis_kit.compressors.base import Compressor
 from redis_kit.serializers.base import Serializer
 
 if TYPE_CHECKING:
@@ -19,6 +20,7 @@ def cached(
     key: str | Callable[..., str],
     ttl: str | int | Callable[..., str | int],
     serializer: Serializer | None = None,
+    compressor: Compressor | None = None,
     bypass: Callable[..., bool] | None = None,
     prefix: str = "",
     ttl_jitter: float = 0.1,
@@ -36,13 +38,14 @@ def cached(
         key: Cache key template string (e.g. "user:{user_id}") or callable.
         ttl: TTL in seconds, string format ("2h30m"), or callable.
         serializer: Custom serializer (default: JsonSerializer).
+        compressor: Custom compressor (default: None = no compression).
         bypass: Callable returning True to force-refresh the cache for this call.
             When bypass returns True, the cache read is skipped but the result
             is still written back to cache (force-refresh behavior, not skip).
         prefix: Optional key prefix prepended as "{prefix}:{key}".
         ttl_jitter: TTL jitter factor (0.1 = +/- 10%).
     """
-    pipeline = DataPipeline(serializer)
+    pipeline = DataPipeline(serializer, compressor)
 
     def decorator(func: Callable) -> Callable:
         is_async = asyncio.iscoroutinefunction(func)

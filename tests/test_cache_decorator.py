@@ -139,3 +139,26 @@ class TestCachedDecorator:
         finally:
             await async_client.flushall()
             await async_client.aclose()
+
+
+def test_cached_with_compressor(redis_client):
+    """@cached with compressor should produce data decodable by Cache with same compressor."""
+    from redis_kit.cache.decorator import cached
+    from redis_kit.cache._logic import DataPipeline
+    from redis_kit.compressors.zlib import ZlibCompressor
+
+    compressor = ZlibCompressor()
+
+    @cached(redis_client, key="comp:{x}", ttl=300, compressor=compressor)
+    def compute(x: int) -> dict:
+        return {"result": x * 2}
+
+    result = compute(5)
+    assert result == {"result": 10}
+
+    # Verify the stored data can be decoded with the same compressor
+    pipeline = DataPipeline(compressor=compressor)
+    raw = redis_client.get("comp:5")
+    assert raw is not None
+    decoded = pipeline.decode(raw)
+    assert decoded == {"result": 10}
