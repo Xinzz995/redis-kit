@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from redis_kit.bloom._base import BloomFilterBase
-
-if TYPE_CHECKING:
-    pass
 
 
 class BloomFilter(BloomFilterBase):

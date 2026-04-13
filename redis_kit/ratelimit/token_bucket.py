@@ -1,12 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from redis_kit.ratelimit._base import TokenBucketBase
 from redis_kit.ratelimit._result import RateLimitResult
-
-if TYPE_CHECKING:
-    pass
 
 
 class TokenBucketLimiter(TokenBucketBase):

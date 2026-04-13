@@ -6,13 +6,9 @@ import time
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
 
 from redis_kit.exceptions import LockAcquireError, LockReleaseError
 from redis_kit.lock._base import LockBase
-
-if TYPE_CHECKING:
-    pass
 
 _logger = logging.getLogger("redis_kit")
 

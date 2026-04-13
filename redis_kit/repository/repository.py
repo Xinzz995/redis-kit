@@ -4,15 +4,12 @@ import dataclasses
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, TypeVar
+from typing import TypeVar
 
 from redis_kit.exceptions import EntityNotFoundError, OptimisticLockError, RepositoryError
 from redis_kit.repository._base_repo import RepositoryBase
 from redis_kit.repository._hash import _NONE_SENTINEL, from_hash, to_hash
 from redis_kit.repository.model import BaseModel
-
-if TYPE_CHECKING:
-    pass
 
 T = TypeVar("T", bound=BaseModel)
 

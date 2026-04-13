@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from redis_kit.queue._base import DelayQueueBase
-
-if TYPE_CHECKING:
-    pass
 
 
 class AsyncDelayQueue(DelayQueueBase):

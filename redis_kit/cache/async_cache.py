@@ -170,26 +170,15 @@ class AsyncCache(CacheBase):
         self._notify_hooks("before", "SET_MANY", keys_str, args=(mapping, ttl))
         start = time.monotonic()
         try:
-            if self._is_cluster:
-                pipe = self._client.pipeline(transaction=False)
-                for key, value in mapping.items():
-                    full_key = self._make_key(key)
-                    encoded = self._pipeline.encode(value)
-                    if resolved_ttl is not None and resolved_ttl > 0:
-                        pipe.setex(full_key, resolved_ttl, encoded)
-                    else:
-                        pipe.set(full_key, encoded)
-                await pipe.execute()
-            else:
-                pipe = self._client.pipeline(transaction=False)
-                for key, value in mapping.items():
-                    full_key = self._make_key(key)
-                    encoded = self._pipeline.encode(value)
-                    if resolved_ttl is not None and resolved_ttl > 0:
-                        pipe.setex(full_key, resolved_ttl, encoded)
-                    else:
-                        pipe.set(full_key, encoded)
-                await pipe.execute()
+            pipe = self._client.pipeline(transaction=False)
+            for key, value in mapping.items():
+                full_key = self._make_key(key)
+                encoded = self._pipeline.encode(value)
+                if resolved_ttl is not None and resolved_ttl > 0:
+                    pipe.setex(full_key, resolved_ttl, encoded)
+                else:
+                    pipe.set(full_key, encoded)
+            await pipe.execute()
         except Exception as e:
             self._notify_hooks("error", "SET_MANY", keys_str, error=e)
             await self._handle_fallback(e, "SET_MANY", keys_str)

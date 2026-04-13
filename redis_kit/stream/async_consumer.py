@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING
 
 from redis.exceptions import ResponseError
 
 from redis_kit.exceptions import StreamError
 from redis_kit.stream._base import StreamConsumerBase
 from redis_kit.stream.message import StreamMessage, decode_stream_data
-
-if TYPE_CHECKING:
-    pass
 
 
 class AsyncStreamConsumer(StreamConsumerBase):

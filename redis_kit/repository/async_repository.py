@@ -1,19 +1,15 @@
 from __future__ import annotations
 
-import asyncio
 import dataclasses
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, TypeVar
+from typing import TypeVar
 
 from redis_kit.exceptions import EntityNotFoundError, OptimisticLockError, RepositoryError
 from redis_kit.repository._base_repo import RepositoryBase
 from redis_kit.repository._hash import _NONE_SENTINEL, from_hash, to_hash
 from redis_kit.repository.model import BaseModel
-
-if TYPE_CHECKING:
-    pass
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -121,18 +117,11 @@ class AsyncRepository(RepositoryBase):
 
     async def hard_delete(self, entity_id: str) -> None:
         key = self._make_key(entity_id)
-        if self._is_cluster:
-            await asyncio.gather(
-                self._client.delete(key),
-                self._client.delete(self._history_key(entity_id)),
-                self._client.srem(self._index_key, entity_id),
-            )
-        else:
-            pipe = self._client.pipeline(transaction=False)
-            pipe.delete(key)
-            pipe.delete(self._history_key(entity_id))
-            pipe.srem(self._index_key, entity_id)
-            await pipe.execute()
+        pipe = self._client.pipeline(transaction=False)
+        pipe.delete(key)
+        pipe.delete(self._history_key(entity_id))
+        pipe.srem(self._index_key, entity_id)
+        await pipe.execute()
 
     async def restore(self, entity_id: str) -> T:
         key = self._make_key(entity_id)
@@ -170,13 +159,10 @@ class AsyncRepository(RepositoryBase):
             eid = raw_id.decode() if isinstance(raw_id, bytes) else raw_id
             decoded_ids.append(eid)
 
-        if self._is_cluster:
-            all_data = list(await asyncio.gather(*(self._client.hgetall(self._make_key(eid)) for eid in decoded_ids)))
-        else:
-            pipe = self._client.pipeline(transaction=False)
-            for eid in decoded_ids:
-                pipe.hgetall(self._make_key(eid))
-            all_data = await pipe.execute()
+        pipe = self._client.pipeline(transaction=False)
+        for eid in decoded_ids:
+            pipe.hgetall(self._make_key(eid))
+        all_data = await pipe.execute()
         result = []
         for data in all_data:
             if not data:

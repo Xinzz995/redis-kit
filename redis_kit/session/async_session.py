@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from redis_kit.exceptions import SessionNotFoundError
 from redis_kit.session._base import SessionManagerBase
-
-if TYPE_CHECKING:
-    pass
 
 
 class AsyncSessionManager(SessionManagerBase):

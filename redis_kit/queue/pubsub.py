@@ -6,13 +6,13 @@ import threading
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from redis_kit.queue._base import MSG_TYPES as _MSG_TYPES
 from redis_kit.queue._base import PubSubBase
 
 if TYPE_CHECKING:
     import redis
 
 _logger = logging.getLogger("redis_kit")
-_MSG_TYPES = frozenset({"message", "pmessage"})
 
 
 class PubSub(PubSubBase):

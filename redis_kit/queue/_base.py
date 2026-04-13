@@ -7,6 +7,12 @@ from typing import Any
 from redis_kit.queue._lua import NACK_SCRIPT, POLL_SCRIPT, PUT_SCRIPT
 
 
+def _encode_message(data: Any) -> bytes:
+    """Encode data into a JSON message with a random ID."""
+    msg_id = uuid.uuid4().hex[:12]
+    return json.dumps({"id": msg_id, "data": data}).encode("utf-8")
+
+
 class ReliableQueueBase:
     """Shared logic for sync and async ReliableQueue."""
 
@@ -17,10 +23,7 @@ class ReliableQueueBase:
         self._processing_key = f"{base}:processing"
         self._nack_script = self._client.register_script(NACK_SCRIPT)
 
-    @staticmethod
-    def _encode_message(data: Any) -> bytes:
-        msg_id = uuid.uuid4().hex[:12]
-        return json.dumps({"id": msg_id, "data": data}).encode("utf-8")
+    _encode_message = staticmethod(_encode_message)
 
 
 class DelayQueueBase:
@@ -32,10 +35,7 @@ class DelayQueueBase:
         self._poll_script = self._client.register_script(POLL_SCRIPT)
         self._put_script = self._client.register_script(PUT_SCRIPT)
 
-    @staticmethod
-    def _encode_message(data: Any) -> bytes:
-        msg_id = uuid.uuid4().hex[:12]
-        return json.dumps({"id": msg_id, "data": data}).encode("utf-8")
+    _encode_message = staticmethod(_encode_message)
 
     @staticmethod
     def _decode_poll_results(results: list) -> list[Any]:
@@ -56,3 +56,6 @@ class PubSubBase:
 
     def _make_channel(self, channel: str) -> str:
         return f"{self._prefix}:{channel}" if self._prefix else channel
+
+
+MSG_TYPES = frozenset({"message", "pmessage"})

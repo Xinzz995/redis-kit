@@ -2,13 +2,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from redis_kit.exceptions import QueueEmptyError
 from redis_kit.queue._base import ReliableQueueBase
-
-if TYPE_CHECKING:
-    pass
 
 
 @dataclass

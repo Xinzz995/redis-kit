@@ -1,13 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING
 
 from redis_kit.ratelimit._base import SlidingWindowBase
 from redis_kit.ratelimit._result import RateLimitResult
-
-if TYPE_CHECKING:
-    pass
 
 
 class AsyncSlidingWindowLimiter(SlidingWindowBase):

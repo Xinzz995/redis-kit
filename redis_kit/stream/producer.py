@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from redis_kit.stream._base import StreamProducerBase
-
-if TYPE_CHECKING:
-    pass
 
 
 class StreamProducer(StreamProducerBase):
