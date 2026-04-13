@@ -37,8 +37,6 @@ def parse_ttl(ttl: str | int | float) -> int:
             value, unit = int(match.group(1)), match.group(2)
             multipliers = {"d": 86400, "h": 3600, "m": 60, "s": 1}
             total += value * multipliers[unit]
-        if total == 0:
-            raise ValueError(f"Invalid TTL string: '{ttl}'")
         return total
     raise TypeError(f"TTL must be str, int, or float, got {type(ttl)}")
 

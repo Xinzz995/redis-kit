@@ -48,6 +48,16 @@ class TestParseTtl:
         # Zero should be fine
         assert parse_ttl(0) == 0
 
+    def test_parse_ttl_zero_string(self):
+        """parse_ttl('0s') should return 0, consistent with parse_ttl(0)."""
+        from redis_kit.cache._logic import parse_ttl
+
+        assert parse_ttl("0s") == 0
+        assert parse_ttl("0m") == 0
+        assert parse_ttl("0h") == 0
+        assert parse_ttl("0d") == 0
+        assert parse_ttl(0) == 0
+
 
 class TestApplyJitter:
     def test_jitter_clamps_to_minimum_one(self):
