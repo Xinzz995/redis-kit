@@ -126,6 +126,35 @@ class TestConnectionManagerCloseSafety:
         assert mgr._sync_client is None
 
 
+def test_from_clients_no_event_loop_leak():
+    """_from_clients with async_client should not create and leak an event loop."""
+    from unittest.mock import AsyncMock
+    from redis_kit.connection import ConnectionManager
+
+    mock_async = AsyncMock()
+    cm = ConnectionManager._from_clients(async_client=mock_async)
+
+    # The async client should NOT be registered immediately when no loop is running
+    assert len(cm._async_clients) == 0
+    # But it should be stored for deferred registration
+    assert cm._preset_async is mock_async
+
+
+async def test_from_clients_deferred_async_client():
+    """_from_clients async_client should be registered when async_client property is accessed."""
+    from unittest.mock import AsyncMock
+    from redis_kit.connection import ConnectionManager
+
+    mock_async = AsyncMock()
+    cm = ConnectionManager._from_clients(async_client=mock_async)
+
+    # Access async_client from within async context
+    client = cm.async_client
+    assert client is mock_async
+    # After first access, _preset_async should be consumed
+    assert cm._preset_async is None
+
+
 class TestConnectionManagerTopology:
     def test_standalone_topology(self):
         conn = ConnectionManager()

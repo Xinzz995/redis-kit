@@ -34,6 +34,7 @@ class ConnectionManager:
             weakref.WeakKeyDictionary()
         )
         self._async_lock = threading.Lock()
+        self._preset_async: Any | None = None
 
     @classmethod
     def _from_clients(
@@ -49,12 +50,13 @@ class ConnectionManager:
         instance._sync_lock = threading.Lock()
         instance._async_clients = weakref.WeakKeyDictionary()
         instance._async_lock = threading.Lock()
+        instance._preset_async = None
         if async_client is not None:
             try:
                 loop = asyncio.get_running_loop()
+                instance._async_clients[loop] = async_client
             except RuntimeError:
-                loop = asyncio.new_event_loop()
-            instance._async_clients[loop] = async_client
+                instance._preset_async = async_client
         return instance
 
     @property
@@ -95,7 +97,11 @@ class ConnectionManager:
             with self._async_lock:
                 client = self._async_clients.get(loop)
                 if client is None:
-                    client = self._build_async_client()
+                    if self._preset_async is not None:
+                        client = self._preset_async
+                        self._preset_async = None
+                    else:
+                        client = self._build_async_client()
                     self._async_clients[loop] = client
         return client
 
