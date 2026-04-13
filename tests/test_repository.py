@@ -12,6 +12,7 @@ from redis_kit.exceptions import (
     RedisKitError,
     RepositoryError,
 )
+from redis_kit.repository._hash import from_hash
 from redis_kit.repository.async_repository import AsyncRepository
 from redis_kit.repository.model import BaseModel
 from redis_kit.repository.repository import Repository
@@ -421,11 +422,9 @@ class TestFromHashMissingFieldNoDefault:
 
     def test_truly_missing_field_no_default(self):
         """Simulate a scenario where a field without default is not in the hash."""
-        repo = Repository(self.client, SampleEntity, prefix="test")
         # SampleEntity fields: id, version, created_at, updated_at, deleted, deleted_at, name, value
-        # All have defaults. But we can test the code path by directly calling _from_hash
+        # All have defaults. But we can test the code path by directly calling from_hash
         # with data that's missing a field that has dataclasses.MISSING as default.
-        # We create a custom entity class inline for this.
 
         @dataclass
         class NoDefaultEntity(BaseModel):
@@ -444,7 +443,7 @@ class TestFromHashMissingFieldNoDefault:
             "name": "test",
             "value": "val",
         }
-        entity = repo._from_hash(data)
+        entity = from_hash(data, SampleEntity)
         assert entity.name == "test"
 
 
@@ -502,16 +501,24 @@ class TestTypeHintsWarning:
         import typing
         from unittest.mock import patch
 
+        from redis_kit.repository._hash import _get_type_hints
+
         repo = Repository(self.client, SampleEntity, prefix="test")
 
         # Save an entity normally first
         saved = repo.save(SampleEntity(name="key", value="val"))
+
+        # Clear the cached type hints so the mock takes effect
+        _get_type_hints.cache_clear()
 
         # Mock get_type_hints to raise NameError
         with patch.object(typing, "get_type_hints", side_effect=NameError("undefined")):
             with caplog.at_level(logging.WARNING, logger="redis_kit"):
                 # This should still work but log a warning
                 repo.find(saved.id)
+
+        # Restore cache for other tests
+        _get_type_hints.cache_clear()
 
         assert any("Failed to resolve type hints" in record.message for record in caplog.records)
 
@@ -529,12 +536,20 @@ class TestAsyncTypeHintsWarning:
         import typing
         from unittest.mock import patch
 
+        from redis_kit.repository._hash import _get_type_hints
+
         repo = AsyncRepository(self.client, SampleEntity, prefix="test")
         saved = await repo.save(SampleEntity(name="key", value="val"))
+
+        # Clear the cached type hints so the mock takes effect
+        _get_type_hints.cache_clear()
 
         with patch.object(typing, "get_type_hints", side_effect=NameError("undefined")):
             with caplog.at_level(logging.WARNING, logger="redis_kit"):
                 await repo.find(saved.id)
+
+        # Restore cache for other tests
+        _get_type_hints.cache_clear()
 
         assert any("Failed to resolve type hints" in record.message for record in caplog.records)
 

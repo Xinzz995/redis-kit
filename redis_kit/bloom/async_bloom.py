@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import hashlib
-import math
 from typing import TYPE_CHECKING
+
+from redis_kit.bloom._math import get_offsets, optimal_hash_count, optimal_size
 
 if TYPE_CHECKING:
     import redis.asyncio
@@ -21,24 +21,11 @@ class AsyncBloomFilter:
     ) -> None:
         self._client = client
         self._key = f"{prefix}:{name}"
-        self._size = self._optimal_size(expected_items, false_positive_rate)
-        self._hash_count = self._optimal_hash_count(self._size, expected_items)
-
-    @staticmethod
-    def _optimal_size(n: int, p: float) -> int:
-        return int(-(n * math.log(p)) / (math.log(2) ** 2))
-
-    @staticmethod
-    def _optimal_hash_count(m: int, n: int) -> int:
-        return max(1, int((m / n) * math.log(2)))
+        self._size = optimal_size(expected_items, false_positive_rate)
+        self._hash_count = optimal_hash_count(self._size, expected_items)
 
     def _get_offsets(self, item: str) -> list[int]:
-        """Double hashing: compute 2 base hashes, derive k offsets."""
-        data = item.encode()
-        h = hashlib.md5(data).hexdigest()  # noqa: S324
-        h1 = int(h[:16], 16)
-        h2 = int(h[16:], 16)
-        return [(h1 + i * h2) % self._size for i in range(self._hash_count)]
+        return get_offsets(item, self._size, self._hash_count)
 
     async def add(self, item: str) -> None:
         pipe = self._client.pipeline(transaction=False)

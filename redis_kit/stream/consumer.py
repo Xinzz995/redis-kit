@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from redis.exceptions import ResponseError
 
 from redis_kit.exceptions import StreamError
-from redis_kit.stream.message import StreamMessage
+from redis_kit.stream.message import StreamMessage, decode_stream_data
 
 if TYPE_CHECKING:
     import redis
@@ -53,11 +53,7 @@ class StreamConsumer:
             s_name = stream_name.decode() if isinstance(stream_name, bytes) else stream_name
             for msg_id, data in messages:
                 m_id = msg_id.decode() if isinstance(msg_id, bytes) else msg_id
-                decoded_data = {
-                    (k.decode() if isinstance(k, bytes) else k): (v.decode() if isinstance(v, bytes) else v)
-                    for k, v in data.items()
-                }
-                msg = StreamMessage(id=m_id, data=decoded_data, stream=s_name, _consumer=self)
+                msg = StreamMessage(id=m_id, data=decode_stream_data(data), stream=s_name, _consumer=self)
                 yield msg
                 if self._auto_ack:
                     self._ack(m_id)
@@ -95,11 +91,7 @@ class StreamConsumer:
         messages = []
         for msg_id, data in messages_data:
             m_id = msg_id.decode() if isinstance(msg_id, bytes) else msg_id
-            decoded_data = {
-                (k.decode() if isinstance(k, bytes) else k): (v.decode() if isinstance(v, bytes) else v)
-                for k, v in data.items()
-            }
-            messages.append(StreamMessage(id=m_id, data=decoded_data, stream=self._stream, _consumer=self))
+            messages.append(StreamMessage(id=m_id, data=decode_stream_data(data), stream=self._stream, _consumer=self))
         return messages
 
     def _ack(self, msg_id: str) -> None:

@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from redis_kit.cache._base import FALLBACK_ERRORS, CacheBase
+from redis_kit.cache._base import CacheBase
 from redis_kit.cache._logic import _MISS
 
 if TYPE_CHECKING:
@@ -49,20 +49,7 @@ class Cache(CacheBase):
 
     def _handle_fallback(self, error: Exception, command: str, key: str, default: Any = None) -> Any:
         """Apply FallbackPolicy after hooks.on_error() has been called."""
-        if not isinstance(error, FALLBACK_ERRORS):
-            raise error
-        policy = self._fallback.on_connection_error
-        if policy == "raise":
-            raise error
-        if policy == "return_none":
-            if self._fallback.log_on_fallback:
-                self._fallback.logger.warning("Redis %s on key '%s' failed, returning None: %s", command, key, error)
-            return default
-        if policy == "callback":
-            if self._fallback.fallback is not None:
-                return self._fallback.fallback(command, key, error)
-            raise error
-        raise error  # pragma: no cover
+        return self._apply_fallback_policy(error, command, key, default)
 
     def _get_raw(self, key: str) -> Any:
         """Internal get returning _MISS sentinel for cache miss."""

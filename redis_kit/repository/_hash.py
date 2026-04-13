@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import functools
 import logging
 import types
 import typing
@@ -13,6 +14,16 @@ from redis_kit.repository.model import BaseModel
 logger = logging.getLogger("redis_kit")
 
 T = TypeVar("T", bound=BaseModel)
+
+
+@functools.lru_cache(maxsize=64)
+def _get_type_hints(model_class: type) -> dict[str, type]:
+    """Cached version of typing.get_type_hints for model classes."""
+    try:
+        return typing.get_type_hints(model_class)
+    except (NameError, AttributeError) as exc:
+        logger.warning("Failed to resolve type hints for %s: %s", model_class.__name__, exc)
+        return {}
 
 
 def to_hash(entity: BaseModel) -> dict[str, str]:
@@ -39,11 +50,7 @@ def from_hash(data: dict[bytes | str, bytes | str], model_class: type[T]) -> T:
         val = v.decode() if isinstance(v, bytes) else v
         decoded[key] = val
 
-    try:
-        hints = typing.get_type_hints(model_class)
-    except (NameError, AttributeError) as exc:
-        logger.warning("Failed to resolve type hints for %s: %s", model_class.__name__, exc)
-        hints = {}
+    hints = _get_type_hints(model_class)
 
     kwargs = {}
     for f in dataclasses.fields(model_class):

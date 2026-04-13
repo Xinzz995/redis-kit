@@ -10,6 +10,14 @@ if TYPE_CHECKING:
     from redis_kit.stream.consumer import StreamConsumer
 
 
+def decode_stream_data(data: dict[bytes | str, bytes | str]) -> dict[str, str]:
+    """Decode bytes keys/values from Redis stream data to strings."""
+    return {
+        (k.decode() if isinstance(k, bytes) else k): (v.decode() if isinstance(v, bytes) else v)
+        for k, v in data.items()
+    }
+
+
 @dataclass
 class StreamMessage:
     """A message from a Redis Stream."""

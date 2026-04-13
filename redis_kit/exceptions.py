@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from redis_kit.policy import FallbackPolicy  # noqa: F401 — re-exported for backwards compatibility
+from redis_kit.policy import FallbackPolicy as FallbackPolicy  # noqa: F401 — re-exported
 
 # --- Base ---
 

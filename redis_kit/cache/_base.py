@@ -48,6 +48,27 @@ class CacheBase:
         seconds = parse_ttl(ttl)
         return apply_jitter(seconds, self._ttl_jitter)
 
+    def _apply_fallback_policy(self, error: Exception, command: str, key: str, default: Any = None) -> Any:
+        """Evaluate FallbackPolicy for connection errors. Returns default or raises.
+
+        Handles "raise" and "return_none" policies. Returns the callback result
+        for "callback" policy — the caller is responsible for awaiting if needed.
+        """
+        if not isinstance(error, FALLBACK_ERRORS):
+            raise error
+        policy = self._fallback.on_connection_error
+        if policy == "raise":
+            raise error
+        if policy == "return_none":
+            if self._fallback.log_on_fallback:
+                self._fallback.logger.warning("Redis %s on key '%s' failed, returning None: %s", command, key, error)
+            return default
+        if policy == "callback":
+            if self._fallback.fallback is not None:
+                return self._fallback.fallback(command, key, error)
+            raise error
+        raise error  # pragma: no cover
+
     def _notify_hooks(self, phase: Literal["before", "after", "error"], command: str, key: str, **kwargs: Any) -> None:
         for hook in self._hooks:
             try:

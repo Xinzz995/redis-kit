@@ -77,44 +77,41 @@ def cached(
             bound_args.apply_defaults()
             return bypass(*bound_args.args, **bound_args.kwargs)
 
+        def _write_cache(cache_key: str, result: Any, resolved_ttl: int) -> None:
+            encoded = pipeline.encode(result)
+            if resolved_ttl > 0:
+                client.setex(cache_key, resolved_ttl, encoded)
+            else:
+                client.set(cache_key, encoded)
+
+        async def _async_write_cache(cache_key: str, result: Any, resolved_ttl: int) -> None:
+            encoded = pipeline.encode(result)
+            if resolved_ttl > 0:
+                await client.setex(cache_key, resolved_ttl, encoded)
+            else:
+                await client.set(cache_key, encoded)
+
         def _invalidate(*args: Any, **kwargs: Any) -> None:
             """Invalidate the cached result for the given arguments."""
-            cache_key = _resolve_key(args, kwargs)
-            client.delete(cache_key)
+            client.delete(_resolve_key(args, kwargs))
 
         async def _async_invalidate(*args: Any, **kwargs: Any) -> None:
             """Async invalidate the cached result for the given arguments."""
-            cache_key = _resolve_key(args, kwargs)
-            await client.delete(cache_key)
+            await client.delete(_resolve_key(args, kwargs))
 
         if is_async:
 
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                if _should_bypass(args, kwargs):
-                    result = await func(*args, **kwargs)
-                    cache_key = _resolve_key(args, kwargs)
-                    resolved_ttl = _resolve_ttl(args, kwargs)
-                    encoded = pipeline.encode(result)
-                    if resolved_ttl > 0:
-                        await client.setex(cache_key, resolved_ttl, encoded)
-                    else:
-                        await client.set(cache_key, encoded)
-                    return result
-
                 cache_key = _resolve_key(args, kwargs)
-                raw = await client.get(cache_key)
-                value = pipeline.decode(raw)
-                if value is not _MISS:
-                    return value
+
+                if not _should_bypass(args, kwargs):
+                    value = pipeline.decode(await client.get(cache_key))
+                    if value is not _MISS:
+                        return value
 
                 result = await func(*args, **kwargs)
-                resolved_ttl = _resolve_ttl(args, kwargs)
-                encoded = pipeline.encode(result)
-                if resolved_ttl > 0:
-                    await client.setex(cache_key, resolved_ttl, encoded)
-                else:
-                    await client.set(cache_key, encoded)
+                await _async_write_cache(cache_key, result, _resolve_ttl(args, kwargs))
                 return result
 
             async_wrapper.invalidate = _async_invalidate  # type: ignore[attr-defined]
@@ -123,30 +120,15 @@ def cached(
 
             @functools.wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-                if _should_bypass(args, kwargs):
-                    result = func(*args, **kwargs)
-                    cache_key = _resolve_key(args, kwargs)
-                    resolved_ttl = _resolve_ttl(args, kwargs)
-                    encoded = pipeline.encode(result)
-                    if resolved_ttl > 0:
-                        client.setex(cache_key, resolved_ttl, encoded)
-                    else:
-                        client.set(cache_key, encoded)
-                    return result
-
                 cache_key = _resolve_key(args, kwargs)
-                raw = client.get(cache_key)
-                value = pipeline.decode(raw)
-                if value is not _MISS:
-                    return value
+
+                if not _should_bypass(args, kwargs):
+                    value = pipeline.decode(client.get(cache_key))
+                    if value is not _MISS:
+                        return value
 
                 result = func(*args, **kwargs)
-                resolved_ttl = _resolve_ttl(args, kwargs)
-                encoded = pipeline.encode(result)
-                if resolved_ttl > 0:
-                    client.setex(cache_key, resolved_ttl, encoded)
-                else:
-                    client.set(cache_key, encoded)
+                _write_cache(cache_key, result, _resolve_ttl(args, kwargs))
                 return result
 
             sync_wrapper.invalidate = _invalidate  # type: ignore[attr-defined]

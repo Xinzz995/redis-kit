@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -99,8 +100,6 @@ class AsyncLock:
 
     async def _acquire_basic(self, key: str, owner: str, timeout: int, blocking_timeout: float | None) -> bool:
         if blocking_timeout is not None:
-            import time
-
             deadline = time.monotonic() + blocking_timeout
             while time.monotonic() < deadline:
                 if await self._client.set(key, owner, nx=True, ex=timeout):
@@ -116,8 +115,6 @@ class AsyncLock:
 
     async def _acquire_reentrant(self, key: str, owner: str, timeout: int, blocking_timeout: float | None) -> bool:
         if blocking_timeout is not None:
-            import time
-
             deadline = time.monotonic() + blocking_timeout
             while time.monotonic() < deadline:
                 if await self._reentrant_acquire_script(keys=[key], args=[owner, timeout]):
@@ -174,8 +171,6 @@ class AsyncLock:
 
         Exception-safe: release failures do not mask the original exception (see ``__call__``).
         """
-        import time
-
         key = self._make_key(name) + ":rwlock"
         writer_key = key + ":writer"
         owner = uuid.uuid4().hex

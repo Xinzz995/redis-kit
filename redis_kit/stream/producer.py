@@ -26,7 +26,7 @@ class StreamProducer:
             data,
             id=msg_id,
             maxlen=self._maxlen,
-            approximate=True if self._maxlen else False,
+            approximate=self._maxlen is not None,
         )
         return result if isinstance(result, str) else result.decode()
 

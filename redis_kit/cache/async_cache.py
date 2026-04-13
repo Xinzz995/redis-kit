@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from redis_kit.cache._base import FALLBACK_ERRORS, CacheBase
+from redis_kit.cache._base import CacheBase
 from redis_kit.cache._logic import _MISS
 
 if TYPE_CHECKING:
@@ -51,23 +51,10 @@ class AsyncCache(CacheBase):
 
     async def _handle_fallback(self, error: Exception, command: str, key: str, default: Any = None) -> Any:
         """Apply FallbackPolicy after hooks.on_error() has been called."""
-        if not isinstance(error, FALLBACK_ERRORS):
-            raise error
-        policy = self._fallback.on_connection_error
-        if policy == "raise":
-            raise error
-        if policy == "return_none":
-            if self._fallback.log_on_fallback:
-                self._fallback.logger.warning("Redis %s on key '%s' failed, returning None: %s", command, key, error)
-            return default
-        if policy == "callback":
-            if self._fallback.fallback is not None:
-                result = self._fallback.fallback(command, key, error)
-                if inspect.isawaitable(result):
-                    return await result
-                return result
-            raise error
-        raise error  # pragma: no cover
+        result = self._apply_fallback_policy(error, command, key, default)
+        if inspect.isawaitable(result):
+            return await result
+        return result
 
     async def _get_raw(self, key: str) -> Any:
         """Internal get returning _MISS sentinel for cache miss."""
@@ -167,7 +154,7 @@ class AsyncCache(CacheBase):
         """Internal get_many returning _MISS sentinel for cache misses."""
         full_keys = [self._make_key(k) for k in keys]
         if self._is_cluster:
-            raw_values = [await self._client.get(k) for k in full_keys]
+            raw_values = list(await asyncio.gather(*(self._client.get(k) for k in full_keys)))
         else:
             raw_values = await self._client.mget(full_keys)
         result = {}
@@ -182,13 +169,15 @@ class AsyncCache(CacheBase):
         start = time.monotonic()
         try:
             if self._is_cluster:
+                coros = []
                 for key, value in mapping.items():
                     full_key = self._make_key(key)
                     encoded = self._pipeline.encode(value)
                     if resolved_ttl is not None and resolved_ttl > 0:
-                        await self._client.setex(full_key, resolved_ttl, encoded)
+                        coros.append(self._client.setex(full_key, resolved_ttl, encoded))
                     else:
-                        await self._client.set(full_key, encoded)
+                        coros.append(self._client.set(full_key, encoded))
+                await asyncio.gather(*coros)
             else:
                 pipe = self._client.pipeline(transaction=False)
                 for key, value in mapping.items():
@@ -215,8 +204,11 @@ class AsyncCache(CacheBase):
             batch: list[bytes | str] = []
             async for key in self._client.scan_iter(match=full_pattern, count=batch_size):
                 if self._is_cluster:
-                    await self._client.delete(key)
-                    count += 1
+                    batch.append(key)
+                    if len(batch) >= batch_size:
+                        await asyncio.gather(*(self._client.delete(k) for k in batch))
+                        count += len(batch)
+                        batch = []
                     continue
                 batch.append(key)
                 if len(batch) >= batch_size:
@@ -224,7 +216,10 @@ class AsyncCache(CacheBase):
                     count += len(batch)
                     batch = []
             if batch:
-                await self._client.delete(*batch)
+                if self._is_cluster:
+                    await asyncio.gather(*(self._client.delete(k) for k in batch))
+                else:
+                    await self._client.delete(*batch)
                 count += len(batch)
         except Exception as e:
             self._notify_hooks("error", "DELETE_PATTERN", pattern, error=e)

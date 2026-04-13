@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 
-@dataclass
+@dataclass(frozen=True)
 class FallbackPolicy:
     """Configurable degradation strategy for Redis failures."""
 

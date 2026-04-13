@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -116,8 +117,6 @@ class Lock:
 
     def _acquire_basic(self, key: str, owner: str, timeout: int, blocking_timeout: float | None) -> bool:
         if blocking_timeout is not None:
-            import time
-
             deadline = time.monotonic() + blocking_timeout
             while time.monotonic() < deadline:
                 if self._client.set(key, owner, nx=True, ex=timeout):
@@ -133,8 +132,6 @@ class Lock:
 
     def _acquire_reentrant(self, key: str, owner: str, timeout: int, blocking_timeout: float | None) -> bool:
         if blocking_timeout is not None:
-            import time
-
             deadline = time.monotonic() + blocking_timeout
             while time.monotonic() < deadline:
                 if self._reentrant_acquire_script(keys=[key], args=[owner, timeout]):
@@ -204,8 +201,6 @@ class Lock:
 
         Exception-safe: release failures do not mask the original exception (see ``__call__``).
         """
-        import time
-
         key = self._make_key(name) + ":rwlock"
         writer_key = key + ":writer"
         owner = uuid.uuid4().hex

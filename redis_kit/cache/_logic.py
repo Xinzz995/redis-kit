@@ -16,7 +16,8 @@ _NEGATIVE = object()
 
 # Marker prefix for cached None values
 _NONE_MARKER = b"__REDIS_KIT_NONE__"
-_NONE_MARKER_STR = "__REDIS_KIT_NONE__"
+
+_TTL_MULTIPLIERS = {"d": 86400, "h": 3600, "m": 60, "s": 1}
 
 
 def parse_ttl(ttl: str | int | float) -> int:
@@ -30,13 +31,13 @@ def parse_ttl(ttl: str | int | float) -> int:
             raise ValueError(f"TTL must be non-negative, got {ttl}")
         return int(ttl)
     if isinstance(ttl, str):
-        if not re.fullmatch(r"\s*(\d+\s*[dhms]\s*)+", ttl.lower()):
+        lower_ttl = ttl.lower()
+        if not re.fullmatch(r"\s*(\d+\s*[dhms]\s*)+", lower_ttl):
             raise ValueError(f"Invalid TTL string: '{ttl}'")
         total = 0
-        for match in re.finditer(r"(\d+)\s*([dhms])", ttl.lower()):
+        for match in re.finditer(r"(\d+)\s*([dhms])", lower_ttl):
             value, unit = int(match.group(1)), match.group(2)
-            multipliers = {"d": 86400, "h": 3600, "m": 60, "s": 1}
-            total += value * multipliers[unit]
+            total += value * _TTL_MULTIPLIERS[unit]
         return total
     raise TypeError(f"TTL must be str, int, or float, got {type(ttl)}")
 
@@ -71,7 +72,7 @@ class DataPipeline:
     def decode(self, data: bytes | None) -> Any:
         if data is None:
             return _MISS
-        if data == _NONE_MARKER or data == _NONE_MARKER_STR:
+        if data == _NONE_MARKER or data == _NONE_MARKER.decode():
             return None
         if self.compressor:
             data = self.compressor.decompress(data)

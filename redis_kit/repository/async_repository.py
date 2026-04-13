@@ -44,15 +44,9 @@ class AsyncRepository:
     def _history_key(self, entity_id: str) -> str:
         return f"{self._make_key(entity_id)}:history"
 
-    def _to_hash(self, entity: BaseModel) -> dict[str, str]:
-        return to_hash(entity)
-
-    def _from_hash(self, data: dict[bytes | str, bytes | str]) -> T:
-        return from_hash(data, self._model_class)
-
     async def _append_history(self, entity: T) -> None:
         history_key = self._history_key(entity.id)
-        history_json = json.dumps(self._to_hash(entity))
+        history_json = json.dumps(to_hash(entity))
         if self._max_history is not None:
             pipe = self._client.pipeline(transaction=False)
             pipe.lpush(history_key, history_json)
@@ -84,7 +78,7 @@ class AsyncRepository:
                 version=entity.version + 1,
                 updated_at=now,
             )
-            hash_data = self._to_hash(entity)
+            hash_data = to_hash(entity)
             # Flatten: [expected_version, field1, val1, field2, val2, ...]
             flat_args: list[str] = [str(entity.version - 1)]
             for field_name, value in hash_data.items():
@@ -96,7 +90,7 @@ class AsyncRepository:
 
             # Write history only after optimistic lock succeeds
             if existing_data:
-                old_entity = self._from_hash(existing_data)
+                old_entity = from_hash(existing_data, self._model_class)
                 await self._append_history(old_entity)
 
             await self._client.sadd(self._index_key, entity.id)
@@ -104,7 +98,7 @@ class AsyncRepository:
 
         key = self._make_key(entity.id)
         pipe = self._client.pipeline(transaction=True)
-        pipe.hset(key, mapping=self._to_hash(entity))
+        pipe.hset(key, mapping=to_hash(entity))
         pipe.sadd(self._index_key, entity.id)
         await pipe.execute()
         return entity
@@ -114,7 +108,7 @@ class AsyncRepository:
         data = await self._client.hgetall(key)
         if not data:
             return None
-        entity = self._from_hash(data)
+        entity = from_hash(data, self._model_class)
         if entity.deleted:
             return None
         return entity
@@ -124,14 +118,14 @@ class AsyncRepository:
         data = await self._client.hgetall(key)
         if not data:
             return None
-        return self._from_hash(data)
+        return from_hash(data, self._model_class)
 
     async def delete(self, entity_id: str) -> None:
         key = self._make_key(entity_id)
         data = await self._client.hgetall(key)
         if not data:
             raise EntityNotFoundError(f"Entity '{entity_id}' not found")
-        entity = self._from_hash(data)
+        entity = from_hash(data, self._model_class)
         now = datetime.now(tz=UTC)
         new_version = entity.version + 1
         flat_args: list[str] = [
@@ -152,16 +146,25 @@ class AsyncRepository:
 
     async def hard_delete(self, entity_id: str) -> None:
         key = self._make_key(entity_id)
-        await self._client.delete(key)
-        await self._client.delete(self._history_key(entity_id))
-        await self._client.srem(self._index_key, entity_id)
+        if self._is_cluster:
+            await asyncio.gather(
+                self._client.delete(key),
+                self._client.delete(self._history_key(entity_id)),
+                self._client.srem(self._index_key, entity_id),
+            )
+        else:
+            pipe = self._client.pipeline(transaction=False)
+            pipe.delete(key)
+            pipe.delete(self._history_key(entity_id))
+            pipe.srem(self._index_key, entity_id)
+            await pipe.execute()
 
     async def restore(self, entity_id: str) -> T:
         key = self._make_key(entity_id)
         data = await self._client.hgetall(key)
         if not data:
             raise EntityNotFoundError(f"Entity '{entity_id}' not found")
-        entity = self._from_hash(data)
+        entity = from_hash(data, self._model_class)
         if not entity.deleted:
             raise RepositoryError(f"Entity '{entity_id}' is not deleted")
         now = datetime.now(tz=UTC)
@@ -203,7 +206,7 @@ class AsyncRepository:
         for data in all_data:
             if not data:
                 continue
-            entity = self._from_hash(data)
+            entity = from_hash(data, self._model_class)
             if not entity.deleted:
                 result.append(entity)
         return result
@@ -214,6 +217,6 @@ class AsyncRepository:
         for item in history_data:
             raw = item.decode() if isinstance(item, bytes) else item
             hash_data = json.loads(raw)
-            entity = self._from_hash(hash_data)
+            entity = from_hash(hash_data, self._model_class)
             result.append(entity)
         return result
