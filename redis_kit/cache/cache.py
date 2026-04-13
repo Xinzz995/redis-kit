@@ -163,32 +163,30 @@ class Cache(CacheBase):
         self._notify_hooks("before", "SET_MANY", keys_str, args=(mapping, ttl))
         start = time.monotonic()
         try:
-            if self._is_cluster:
-                pipe = self._client.pipeline(transaction=False)
-                for key, value in mapping.items():
-                    full_key = self._make_key(key)
-                    encoded = self._pipeline.encode(value)
-                    if resolved_ttl is not None and resolved_ttl > 0:
-                        pipe.setex(full_key, resolved_ttl, encoded)
-                    else:
-                        pipe.set(full_key, encoded)
-                pipe.execute()
-            else:
-                pipe = self._client.pipeline(transaction=False)
-                for key, value in mapping.items():
-                    full_key = self._make_key(key)
-                    encoded = self._pipeline.encode(value)
-                    if resolved_ttl is not None and resolved_ttl > 0:
-                        pipe.setex(full_key, resolved_ttl, encoded)
-                    else:
-                        pipe.set(full_key, encoded)
-                pipe.execute()
+            pipe = self._client.pipeline(transaction=False)
+            for key, value in mapping.items():
+                full_key = self._make_key(key)
+                encoded = self._pipeline.encode(value)
+                if resolved_ttl is not None and resolved_ttl > 0:
+                    pipe.setex(full_key, resolved_ttl, encoded)
+                else:
+                    pipe.set(full_key, encoded)
+            pipe.execute()
         except Exception as e:
             self._notify_hooks("error", "SET_MANY", keys_str, error=e)
             self._handle_fallback(e, "SET_MANY", keys_str)
             return
         duration = (time.monotonic() - start) * 1000
         self._notify_hooks("after", "SET_MANY", keys_str, result=None, duration_ms=duration)
+
+    def _flush_delete_batch(self, batch: list[bytes | str]) -> None:
+        if self._is_cluster:
+            pipe = self._client.pipeline(transaction=False)
+            for k in batch:
+                pipe.delete(k)
+            pipe.execute()
+        else:
+            self._client.delete(*batch)
 
     def delete_pattern(self, pattern: str, batch_size: int = 100) -> int:
         full_pattern = self._make_key(pattern)
@@ -200,23 +198,11 @@ class Cache(CacheBase):
             for key in self._client.scan_iter(match=full_pattern, count=batch_size):
                 batch.append(key)
                 if len(batch) >= batch_size:
-                    if self._is_cluster:
-                        pipe = self._client.pipeline(transaction=False)
-                        for k in batch:
-                            pipe.delete(k)
-                        pipe.execute()
-                    else:
-                        self._client.delete(*batch)
+                    self._flush_delete_batch(batch)
                     count += len(batch)
                     batch = []
             if batch:
-                if self._is_cluster:
-                    pipe = self._client.pipeline(transaction=False)
-                    for k in batch:
-                        pipe.delete(k)
-                    pipe.execute()
-                else:
-                    self._client.delete(*batch)
+                self._flush_delete_batch(batch)
                 count += len(batch)
         except Exception as e:
             self._notify_hooks("error", "DELETE_PATTERN", pattern, error=e)

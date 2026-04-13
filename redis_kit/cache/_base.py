@@ -49,10 +49,9 @@ class CacheBase:
         return apply_jitter(seconds, self._ttl_jitter)
 
     def _apply_fallback_policy(self, error: Exception, command: str, key: str, default: Any = None) -> Any:
-        """Evaluate FallbackPolicy for connection errors.
-
-        Caller is responsible for awaiting the result if the callback is async.
-        """
+        """Evaluate FallbackPolicy for connection errors."""
+        # NOTE: "callback" policy returns the raw callback result;
+        # async callers must await it if the callback is a coroutine.
         if not isinstance(error, FALLBACK_ERRORS):
             raise error
         policy = self._fallback.on_connection_error

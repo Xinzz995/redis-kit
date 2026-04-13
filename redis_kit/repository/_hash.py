@@ -72,10 +72,10 @@ def from_hash(data: dict[bytes | str, bytes | str], model_class: type[T]) -> T:
             args = [a for a in typing.get_args(ftype) if a is not type(None)]
             ftype = args[0] if args else ftype
 
-        if raw is None or raw == _NONE_SENTINEL:
-            if raw == _NONE_SENTINEL:
-                kwargs[f.name] = None
-            elif f.default is not dataclasses.MISSING:
+        if raw == _NONE_SENTINEL:
+            kwargs[f.name] = None
+        elif raw is None:
+            if f.default is not dataclasses.MISSING:
                 kwargs[f.name] = f.default
             elif f.default_factory is not dataclasses.MISSING:
                 kwargs[f.name] = f.default_factory()
