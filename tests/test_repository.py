@@ -872,3 +872,49 @@ class TestAsyncDeleteOptimisticLock:
         found = await repo.find_including_deleted(saved.id)
         assert found.deleted is True
         assert found.version == 2
+
+
+# ============================================================
+# Task 10: Repository.save() new entity atomicity (I-1)
+# ============================================================
+
+
+@pytest.fixture
+def redis_client():
+    client = fakeredis.FakeRedis(decode_responses=False)
+    yield client
+    client.flushall()
+    client.close()
+
+
+def test_save_new_entity_uses_pipeline(redis_client):
+    """New entity save should use pipeline for atomic hset + sadd."""
+    from unittest.mock import patch
+
+    from redis_kit.repository.model import BaseModel
+    from redis_kit.repository.repository import Repository
+
+    @dataclass
+    class Item(BaseModel):
+        name: str = ""
+
+    repo = Repository(redis_client, Item, prefix="test_atomic")
+    item = Item(name="test")
+
+    # Patch pipeline to verify it's used
+    original_pipeline = redis_client.pipeline
+
+    pipeline_calls = []
+
+    def tracking_pipeline(*args, **kwargs):
+        pipe = original_pipeline(*args, **kwargs)
+        pipeline_calls.append(kwargs.get("transaction", False))
+        return pipe
+
+    with patch.object(redis_client, "pipeline", side_effect=tracking_pipeline):
+        saved = repo.save(item)
+
+    assert saved.id != ""
+    assert saved.version == 1
+    assert len(pipeline_calls) == 1
+    assert pipeline_calls[0] is True  # transaction=True

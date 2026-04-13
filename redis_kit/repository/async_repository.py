@@ -86,8 +86,10 @@ class AsyncRepository:
             return entity
 
         key = self._make_key(entity.id)
-        await self._client.hset(key, mapping=self._to_hash(entity))
-        await self._client.sadd(self._index_key, entity.id)
+        pipe = self._client.pipeline(transaction=True)
+        pipe.hset(key, mapping=self._to_hash(entity))
+        pipe.sadd(self._index_key, entity.id)
+        await pipe.execute()
         return entity
 
     async def find(self, entity_id: str) -> T | None:
