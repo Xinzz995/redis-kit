@@ -53,10 +53,7 @@ class LRUCache:
         """
         now = time.monotonic()
         step = max(1, len(self._data) // 10)
-        expired = [
-            k for k in itertools.islice(self._data, 0, None, step)
-            if now > self._data[k][1]
-        ]
+        expired = [k for k in itertools.islice(self._data, 0, None, step) if now > self._data[k][1]]
         for k in expired:
             del self._data[k]
 
