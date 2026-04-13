@@ -145,16 +145,11 @@ class Repository:
 
     def hard_delete(self, entity_id: str) -> None:
         key = self._make_key(entity_id)
-        if self._is_cluster:
-            self._client.delete(key)
-            self._client.delete(self._history_key(entity_id))
-            self._client.srem(self._index_key, entity_id)
-        else:
-            pipe = self._client.pipeline(transaction=False)
-            pipe.delete(key)
-            pipe.delete(self._history_key(entity_id))
-            pipe.srem(self._index_key, entity_id)
-            pipe.execute()
+        pipe = self._client.pipeline(transaction=False)
+        pipe.delete(key)
+        pipe.delete(self._history_key(entity_id))
+        pipe.srem(self._index_key, entity_id)
+        pipe.execute()
 
     def restore(self, entity_id: str) -> T:
         key = self._make_key(entity_id)
