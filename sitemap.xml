@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/changelog/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/changelog/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/configuration/exceptions/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/configuration/exceptions/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/configuration/exceptions/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/configuration/serialization/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/configuration/serialization/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/configuration/serialization/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/configuration/topology/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/configuration/topology/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/configuration/topology/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/getting-started/installation/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/getting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/getting-started/installation/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/getting-started/quickstart/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/getting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/getting-started/quickstart/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/modules/bloom/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/bloom/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/bloom/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/modules/cache/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/cache/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/cache/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/modules/counter/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/counter/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/counter/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/modules/lock/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/lock/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/lock/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/modules/observability/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/observability/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/observability/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/modules/queue/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/queue/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/queue/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/modules/ratelimit/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/ratelimit/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/ratelimit/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/modules/repository/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/repository/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/repository/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/modules/session/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/session/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/session/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/modules/streams/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/streams/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/streams/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/modules/tiered-cache/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/tiered-cache/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/tiered-cache/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/changelog/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/changelog/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/configuration/exceptions/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/configuration/exceptions/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/configuration/exceptions/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/configuration/serialization/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/configuration/serialization/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/configuration/serialization/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/configuration/topology/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/configuration/topology/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/configuration/topology/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/getting-started/installation/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/getting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/getting-started/installation/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/getting-started/quickstart/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/getting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/getting-started/quickstart/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/modules/bloom/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/bloom/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/bloom/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/modules/cache/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/cache/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/cache/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/modules/counter/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/counter/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/counter/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/modules/lock/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/lock/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/lock/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/modules/observability/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/observability/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/observability/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/modules/queue/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/queue/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/queue/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/modules/ratelimit/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/ratelimit/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/ratelimit/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/modules/repository/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/repository/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/repository/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/modules/session/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/session/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/session/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/modules/streams/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/streams/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/streams/"/>
+    </url>
+    <url>
+        <loc>https://xinzz995.github.io/redis-kit/en/modules/tiered-cache/</loc>
+        <lastmod>2026-04-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://xinzz995.github.io/redis-kit/en/modules/tiered-cache/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://xinzz995.github.io/redis-kit/modules/tiered-cache/"/>
+    </url>
+</urlset>
