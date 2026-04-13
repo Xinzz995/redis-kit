@@ -73,279 +73,279 @@
 
 ## [1.0.2] - 2026-04-11
 
-### Fixed
-- **Cache**: `parse_ttl()` now rejects TTL strings with trailing garbage instead of partially parsing them
-- **RateLimit**: `parse_rate_dsl()` now requires a complete DSL match instead of accepting trailing junk
-- **RateLimit**: `@rate_limit` now validates `algorithm` and rejects unknown values with `ValueError`
-- **Repository**: `delete()` and `restore()` now record the previous entity state in history, aligning version history with all versioned mutations
+### 修复
+- **Cache**: `parse_ttl()` 拒绝带尾随垃圾的 TTL 字符串，而非部分解析
+- **RateLimit**: `parse_rate_dsl()` 要求完整匹配 DSL，拒绝尾随内容
+- **RateLimit**: `@rate_limit` 校验 `algorithm` 参数，未知值抛出 `ValueError`
+- **Repository**: `delete()` 和 `restore()` 现在记录操作前的实体状态到历史
 
-### Docs
-- Synced README and Chinese/English module docs with strict TTL/DSL validation behavior
-- Clarified that repository history includes states captured before `save()`, `delete()`, and `restore()`
+### 文档
+- 同步 README 和中英文模块文档，说明严格的 TTL/DSL 校验行为
+- 明确 Repository 历史记录包含 `save()`、`delete()`、`restore()` 前的状态
 
-### Tests
-- Added regression coverage for TTL trailing-garbage rejection, rate-limit DSL / algorithm validation, and repository delete/restore history
-- 453 tests, 0 failures
+### 测试
+- 新增 TTL 尾随垃圾拒绝、限流 DSL/algorithm 校验、Repository delete/restore 历史的回归测试
+- 453 tests，0 failures
 
 ## [1.0.1] - 2026-04-11
 
-### Fixed
-- **Stream**: `StreamMessage.async_ack()` now raises a clear `StreamError` when called on sync-consumed messages instead of leaking `AttributeError`
-- **Queue**: `AsyncPubSub.listen()` now awaits async callable objects (`async __call__`) instead of dropping unawaited coroutines
-- **Cache**: `delete_pattern()` now deletes keys one-by-one in cluster mode to avoid cross-slot multi-key `DELETE` failures
+### 修复
+- **Stream**: `StreamMessage.async_ack()` 在同步消费者上调用时抛出清晰的 `StreamError`，而非泄漏 `AttributeError`
+- **Queue**: `AsyncPubSub.listen()` 正确 `await` 异步可调用对象（`async __call__`），不再丢弃未等待的协程
+- **Cache**: `delete_pattern()` 在集群模式下逐个删除 key，避免跨 slot 的多 key `DELETE` 失败
 
-### Docs
-- **Cache**: async `@cached` examples now use `conn.async_client` consistently
-- **RateLimit**: async `@rate_limit` examples now use `conn.async_client` consistently
+### 文档
+- **Cache**: 异步 `@cached` 示例统一使用 `conn.async_client`
+- **RateLimit**: 异步 `@rate_limit` 示例统一使用 `conn.async_client`
 
-### Tests
-- Added regression coverage for sync/async stream ACK misuse, async callable PubSub handlers, and cluster-safe cache pattern deletion
-- 448 tests, 0 failures
+### 测试
+- 新增 sync/async Stream ACK 误用、异步 PubSub 处理器、集群安全缓存模式删除的回归测试
+- 448 tests，0 failures
 
 ## [1.0.0] - 2026-04-11
 
-**First stable release.** 4 rounds of code review, 444 tests, 11 modules, production-ready.
+**首个稳定版本。** 4 轮代码审查，444 个测试，11 个模块，可用于生产。
 
-### Changed
-- `Development Status` upgraded from `Beta` to `Production/Stable`
-- `CommandHook`, `Serializer`, `Compressor` protocols now exported from package root (`from redis_kit import CommandHook`)
+### 变更
+- `Development Status` 从 `Beta` 升级为 `Production/Stable`
+- `CommandHook`、`Serializer`、`Compressor` 协议从包根导出（`from redis_kit import CommandHook`）
 
-### Fixed
-- **Lock**: `write()` now checks `WRITE_RELEASE` return value and raises `LockReleaseError` on owner mismatch — previously silently discarded the signal
-- **Cache**: `get_many()` and `set_many()` now apply `FallbackPolicy` on connection errors — previously always re-raised, inconsistent with `get()`/`set()`
-- **Cache**: `@cached` decorator docstring clarifies no fallback/hooks support and `bypass` is force-refresh semantics
-- **Connection**: `close()` docstring documents TOCTOU constraint (must not be called while other threads use `sync_client`)
+### 修复
+- **Lock**: `write()` 检查 `WRITE_RELEASE` 返回值，owner 不匹配时抛出 `LockReleaseError` — 此前静默忽略
+- **Cache**: `get_many()` 和 `set_many()` 在连接错误时应用 `FallbackPolicy` — 此前总是重新抛出，与 `get()`/`set()` 不一致
+- **Cache**: `@cached` 装饰器文档明确无 fallback/hooks 支持，`bypass` 为强制刷新语义
+- **Connection**: `close()` 文档说明 TOCTOU 约束（不可在其他线程使用 `sync_client` 时调用）
 
-### Refactored
-- Session `_UPDATE_SCRIPT` Lua script extracted to shared `redis_kit/session/_lua.py` — prevents sync/async silent divergence
-- `_NEGATIVE` sentinel centralized in `redis_kit/cache/_logic.py` — was duplicated in `tiered.py` and `async_tiered.py`
-- Repository `_to_hash`/`_from_hash` extracted to shared `redis_kit/repository/_hash.py` (done in 0.7.2)
-- Cache `get_many` delegates to `_get_many_raw` with unified hooks/fallback (done in 0.7.2)
+### 重构
+- Session `_UPDATE_SCRIPT` Lua 脚本提取至共享的 `redis_kit/session/_lua.py` — 防止 sync/async 静默分歧
+- `_NEGATIVE` 哨兵值集中到 `redis_kit/cache/_logic.py` — 此前在 `tiered.py` 和 `async_tiered.py` 中重复
+- Repository `_to_hash`/`_from_hash` 提取至共享的 `redis_kit/repository/_hash.py`
+- Cache `get_many` 委托给 `_get_many_raw`，统一 hooks/fallback
 
-### Stats
-- 444 tests, 0 failures
-- 68 source files, 11 modules
-- 4 rounds of code review (0 Critical issues remaining)
+### 统计
+- 444 tests，0 failures
+- 68 个源文件，11 个模块
+- 4 轮代码审查（0 个 Critical 问题遗留）
 
 ## [0.7.2] - 2026-04-11
 
-### Fixed
-- **Cache**: `parse_ttl()` now rejects negative TTL values with `ValueError` — previously silently created permanent keys
-- **Cache**: `_notify_hooks()` wraps each hook call in `try/except` — a misbehaving hook no longer breaks cache operations (matches `CompositeHook` pattern)
-- **Cache**: `TieredCache.get_many()` now correctly distinguishes cached `None` from cache miss — previously wrote `_NEGATIVE` to L1 for cached `None` values
-- **Cache**: `AsyncTieredCache` gained `iter_keys()` method — restores sync/async API parity
-- **Connection**: `ConnectionManager.close()` now acquires `_sync_lock` — fixes race condition with concurrent `sync_client` access
-- **Exceptions**: `FallbackPolicy(on_connection_error="callback")` now validates that `fallback` is not `None` at construction time
-- **Lock**: `read()` and `write()` context managers switched from `try/finally` to `except/else` — release failures no longer mask the original exception (matches `__call__` behavior)
-- **PubSub**: `AsyncPubSub.listen()` now detects and `await`s async handlers — previously silently discarded unawaited coroutines
-- **Queue**: `DelayQueue.put()` and `poll()` now use Redis server-side `TIME` via Lua scripts — eliminates distributed clock drift (matches RateLimit approach)
-- **Repository**: `restore()` now uses optimistic locking, increments `version`, and updates `updated_at` — previously skipped version check and broke the mutation invariant
+### 修复
+- **Cache**: `parse_ttl()` 拒绝负数 TTL，抛出 `ValueError` — 此前静默创建永久 key
+- **Cache**: `_notify_hooks()` 用 `try/except` 包裹每个 hook 调用 — 异常 hook 不再中断缓存操作
+- **Cache**: `TieredCache.get_many()` 正确区分缓存的 `None` 值和 cache miss
+- **Cache**: `AsyncTieredCache` 新增 `iter_keys()` 方法 — 恢复 sync/async API 对等
+- **Connection**: `ConnectionManager.close()` 获取 `_sync_lock` — 修复并发 `sync_client` 访问的竞态
+- **Exceptions**: `FallbackPolicy(on_connection_error="callback")` 在构造时校验 `fallback` 非 `None`
+- **Lock**: `read()` 和 `write()` 上下文管理器改用 `except/else` — 释放失败不再遮蔽原始异常
+- **PubSub**: `AsyncPubSub.listen()` 检测并 `await` 异步处理器 — 此前静默丢弃未等待的协程
+- **Queue**: `DelayQueue.put()` 和 `poll()` 使用 Redis 服务端 `TIME` — 消除分布式时钟漂移
+- **Repository**: `restore()` 使用乐观锁，递增 `version`，更新 `updated_at`
 
-### Removed
-- Dead file `redis_kit/cache/_cluster.py` (empty, never imported)
-- Dead function `resolve_callable()` in `redis_kit/cache/_logic.py` (never used)
-- Dead code branch in `Repository._from_hash()` datetime handling (`raw != "__NONE__"` always true)
+### 移除
+- 死文件 `redis_kit/cache/_cluster.py`（空文件，从未导入）
+- 死函数 `resolve_callable()`（从未使用）
+- `Repository._from_hash()` 中的死代码分支
 
-### Stats
-- 430 tests (up from 414), 0 failures
-- 24 files changed, +400 -68 lines
+### 统计
+- 430 tests（从 414 增加），0 failures
+- 24 files changed，+400 -68 lines
 
 ## [0.7.1] - 2026-04-11
 
-### Fixed (Critical)
-- **Repository**: `save()` history lpush moved after optimistic lock check — prevents history pollution on version conflict (C-1)
-- **PubSub**: `except Exception: pass` replaced with `_logger.exception()` — errors are now logged instead of silently swallowed (C-2)
-- **RateLimit**: `@rate_limit` decorator type hint updated to accept both sync and async Redis clients (C-3)
-- **Cache**: `hooks.before()` and `hooks.on_error()` now called for all operations — previously dead code (C-4)
-- **Cache**: `FallbackPolicy` fully implemented — three strategies: `"raise"`, `"return_none"`, `"callback"` (C-5)
-- **OTel**: `ContextVar` replaced with span stack (`ContextVar[list[Span]]`) — fixes concurrent async span leak (C-6)
+### 修复（Critical）
+- **Repository**: `save()` 的 history lpush 移到乐观锁检查之后 — 防止版本冲突时污染历史
+- **PubSub**: `except Exception: pass` 替换为 `_logger.exception()` — 错误不再被静默吞没
+- **RateLimit**: `@rate_limit` 装饰器类型提示更新，接受同步和异步 Redis 客户端
+- **Cache**: `hooks.before()` 和 `hooks.on_error()` 在所有操作中调用 — 此前是死代码
+- **Cache**: `FallbackPolicy` 完整实现三种策略：`"raise"`、`"return_none"`、`"callback"`
+- **OTel**: `ContextVar` 替换为 span 栈（`ContextVar[list[Span]]`）— 修复并发异步 span 泄漏
 
-### Fixed (Important)
-- **Repository**: `_from_hash` now handles `dataclasses.MISSING` default fields without crashing (I-1)
-- **Repository**: `get_type_hints` catches `(NameError, AttributeError)` instead of broad `Exception` (I-2)
-- **Repository**: `datetime.now()` replaced with `datetime.now(tz=UTC)` for timezone safety (I-3)
-- **Session**: `update()` now uses Lua script for atomic EXISTS+HSET+EXPIRE (I-4)
-- **Session**: `refresh()` simplified to single `expire()` call, eliminating TOCTOU race (I-5)
-- **Stream**: `ensure_group()` catches `ResponseError` instead of broad `Exception` for BUSYGROUP (I-6)
-- **TieredCache**: `get()` uses `_get_raw()` to distinguish cached `None` from cache miss (I-7)
-- **Lock**: Watchdog timer list pruned in `renew()` to prevent memory leak (I-8)
-- **Repository**: `delete()` now uses Lua optimistic lock — prevents concurrent version conflicts (I-9)
+### 修复（Important）
+- **Repository**: `_from_hash` 处理 `dataclasses.MISSING` 默认字段不再崩溃
+- **Repository**: `get_type_hints` 捕获 `(NameError, AttributeError)` 而非宽泛的 `Exception`
+- **Repository**: `datetime.now()` 替换为 `datetime.now(tz=UTC)` 确保时区安全
+- **Session**: `update()` 使用 Lua 脚本实现原子 EXISTS+HSET+EXPIRE
+- **Session**: `refresh()` 简化为单次 `expire()` 调用，消除 TOCTOU 竞态
+- **Stream**: `ensure_group()` 捕获 `ResponseError` 而非宽泛的 `Exception`
+- **TieredCache**: `get()` 使用 `_get_raw()` 区分缓存的 `None` 和 cache miss
+- **Lock**: 看门狗定时器列表在 `renew()` 中清理，防止内存泄漏
+- **Repository**: `delete()` 使用 Lua 乐观锁 — 防止并发版本冲突
 
-### Improved (Suggestions)
-- **RateLimit**: Lua scripts now use `redis.call("TIME")` instead of client-side `time.time()` — eliminates distributed clock drift (S-1)
-- **Lock**: `LockReleaseError` no longer masks original exceptions in context manager (S-2)
-- **Connection**: `aclose()` now closes all async clients across all event loops (S-3)
-- **PubSub**: `listen()` refactored with `get_message()` polling, `stop()` method, and `timeout` parameter for graceful shutdown (S-4)
-- **Stream**: `StreamMessage._consumer` typed as `StreamConsumer | AsyncStreamConsumer | None` instead of `Any` (S-5)
-- **Cache**: `delete()` now calls `after` hook on success (final review fix)
-- **Connection**: `aclose()` logs debug message on client close failure instead of silent pass (final review fix)
+### 改进
+- **RateLimit**: Lua 脚本使用 `redis.call("TIME")` 替代客户端 `time.time()` — 消除分布式时钟漂移
+- **Lock**: `LockReleaseError` 不再在上下文管理器中遮蔽原始异常
+- **Connection**: `aclose()` 关闭所有 event loop 的异步客户端
+- **PubSub**: `listen()` 重构为 `get_message()` 轮询，新增 `stop()` 方法和 `timeout` 参数
+- **Stream**: `StreamMessage._consumer` 类型标注为 `StreamConsumer | AsyncStreamConsumer | None`
+- **Cache**: `delete()` 成功时调用 `after` hook
+- **Connection**: `aclose()` 客户端关闭失败时记录 debug 日志
 
-### Stats
-- 414 tests (up from 336), 0 failures
-- 36 files changed, +2199 -312 lines
+### 统计
+- 414 tests（从 336 增加），0 failures
+- 36 files changed，+2199 -312 lines
 
 ## [0.7.0] - 2026-04-10
 
-### Fixed (Critical)
-- **Lock**: Read/write lock now fully atomic via Lua scripts, fixing race condition in `write()` (C1)
-- **Lock**: Lua scripts declare all accessed keys in `KEYS[]` for Redis Cluster compliance (C2)
-- **Lock**: Watchdog timer chain properly tracked and cancelled on release (C4)
-- **Cache**: `remember()` now correctly caches `None` values from factory (C3)
-- **Repository**: Optimistic lock is now atomic check-and-write in single Lua script (C5)
-- **PubSub**: Pattern subscription (`psubscribe`) handler lookup fixed — uses `message["pattern"]` (C6)
-- **Stream**: Added `StreamMessage.async_ack()` for async consumer manual ACK (C7)
-- **Queue**: `ReliableQueue._nack()` is now atomic via Lua, preserves original msg_id (C8)
-- **Session**: `create()` uses pipeline for atomic hset+expire (C9)
-- **Connection**: `ClusterConfig.read_from_replicas` now passed to RedisCluster (C10)
+### 修复（Critical）
+- **Lock**: 读写锁通过 Lua 脚本完全原子化，修复 `write()` 竞态条件
+- **Lock**: Lua 脚本在 `KEYS[]` 中声明所有访问的 key，符合 Redis Cluster 规范
+- **Lock**: 看门狗定时器链正确跟踪和取消
+- **Cache**: `remember()` 正确缓存工厂返回的 `None` 值
+- **Repository**: 乐观锁改为单个 Lua 脚本中的原子 check-and-write
+- **PubSub**: 模式订阅处理器查找修复 — 使用 `message["pattern"]`
+- **Stream**: 新增 `StreamMessage.async_ack()` 用于异步消费者手动 ACK
+- **Queue**: `ReliableQueue._nack()` 通过 Lua 实现原子操作，保留原始 msg_id
+- **Session**: `create()` 使用 pipeline 实现原子 hset+expire
+- **Connection**: `ClusterConfig.read_from_replicas` 传递给 RedisCluster
 
-### Fixed (Important)
-- **Cache**: `apply_jitter` clamped to min=1, preventing TTL=0 errors
-- **Cache**: `@cached` decorator guards against TTL=0 with fallback to `SET`
-- **Cache**: `AsyncCache` now has full hook support (parity with sync `Cache`)
-- **Cache**: `delete_pattern` uses batch `DELETE` instead of per-key calls
-- **Cache**: `TieredCache.get_many()` applies negative caching for L2 misses
-- **Cache**: Unified `_MISS` sentinel across `_logic.py` and `local.py`
-- **Observability**: `MetricsCollector` is now thread-safe with bounded `deque`
-- **Observability**: `OpenTelemetryHook` creates spans in `before()`, ends in `after()`/`on_error()`
-- **Hooks**: `CompositeHook` isolates exceptions per hook (one failure doesn't block others)
-- **Connection**: `ssl` config now passed in `from_url` path
-- **Connection**: `assert isinstance` replaced with `raise TypeError` (survives `python -O`)
-- **Config**: `SentinelConfig.sentinels` / `ClusterConfig.startup_nodes` now immutable `tuple`
-- **Repository**: `_from_hash` uses `typing.get_type_hints()` for robust type resolution
-- **Repository**: Soft delete now bumps `version` and `updated_at`
-- **Queue**: `DelayQueue.put()` uses unique member IDs to prevent deduplication
-- **PubSub**: Per-message error isolation in `listen()` loop
-- **RateLimit**: `TokenBucketLimiter` validates `rate > 0` and `capacity > 0`
-- **Session**: `update()` uses pipeline to fix TOCTOU race, refreshes TTL
-- **Bloom**: Added `reset()` method
-- **Exports**: All 20 exceptions now exported from top-level `__init__.py`
+### 修复（Important）
+- **Cache**: `apply_jitter` 最小值钳制为 1，防止 TTL=0 错误
+- **Cache**: `@cached` 装饰器对 TTL=0 降级为 `SET`
+- **Cache**: `AsyncCache` 完整支持 hook（与同步 `Cache` 对等）
+- **Cache**: `delete_pattern` 使用批量 `DELETE` 替代逐 key 调用
+- **Cache**: `TieredCache.get_many()` 对 L2 miss 应用负缓存
+- **Cache**: 统一 `_MISS` 哨兵值到 `_logic.py` 和 `local.py`
+- **Observability**: `MetricsCollector` 线程安全，使用有界 `deque`
+- **Observability**: `OpenTelemetryHook` 在 `before()` 创建 span，在 `after()`/`on_error()` 结束
+- **Hooks**: `CompositeHook` 隔离各 hook 异常
+- **Connection**: `from_url` 路径传递 `ssl` 配置
+- **Connection**: `assert isinstance` 替换为 `raise TypeError`（兼容 `python -O`）
+- **Config**: `SentinelConfig.sentinels` / `ClusterConfig.startup_nodes` 改为不可变 `tuple`
+- **Repository**: `_from_hash` 使用 `typing.get_type_hints()` 实现健壮的类型解析
+- **Repository**: 软删除递增 `version` 和 `updated_at`
+- **Queue**: `DelayQueue.put()` 使用唯一 member ID 防止去重
+- **PubSub**: `listen()` 循环中的逐消息错误隔离
+- **RateLimit**: `TokenBucketLimiter` 校验 `rate > 0` 和 `capacity > 0`
+- **Session**: `update()` 使用 pipeline 修复 TOCTOU 竞态，刷新 TTL
+- **Bloom**: 新增 `reset()` 方法
+- **Exports**: 所有 20 个异常从顶层 `__init__.py` 导出
 
-### Improved (Suggestions)
-- **Cache**: Removed dead `group_keys_by_slot` code from `_cluster.py`
-- **Cache**: `Cache.set()` hook now measures actual duration instead of hardcoded 0
-- **Cache**: `LRUCache.size` property is now thread-safe
-- **Cache**: `TieredCache` / `AsyncTieredCache` now support `bind()` method
-- **Cache**: `@cached` decorator supports `.invalidate()` for cache entry removal
-- **Bloom**: Switched from SHA-256 to double hashing (MD5-based, ~3.5x faster)
-- **Bloom**: `exists_many` uses single pipeline instead of N round trips
-- **Repository**: `find_all()` uses pipeline instead of N+1 queries
-- **Repository**: `restore()` on non-deleted entity now raises `RepositoryError` (not `EntityNotFoundError`)
-- **Session**: Values serialized with JSON (preserves types) instead of `str()`
-- **Counter**: `decr()` docstring documents that values can go below zero
-- **Queue**: `DelayQueue` Lua poll script extracted to shared `queue/_lua.py`
-- 13 new async tests (ratelimit, reliable queue ack/nack, stream pending)
+### 改进
+- **Cache**: 移除死代码 `group_keys_by_slot`
+- **Cache**: `Cache.set()` hook 测量实际耗时而非硬编码 0
+- **Cache**: `LRUCache.size` 属性线程安全
+- **Cache**: `TieredCache` / `AsyncTieredCache` 支持 `bind()` 方法
+- **Cache**: `@cached` 装饰器支持 `.invalidate()` 缓存失效
+- **Bloom**: 从 SHA-256 切换为 double hashing（基于 MD5，~3.5x 更快）
+- **Bloom**: `exists_many` 使用单次 pipeline 替代 N 次往返
+- **Repository**: `find_all()` 使用 pipeline 替代 N+1 查询
+- **Repository**: `restore()` 对未删除实体抛出 `RepositoryError`（而非 `EntityNotFoundError`）
+- **Session**: 值使用 JSON 序列化（保留类型）替代 `str()`
+- **Counter**: `decr()` 文档说明值可低于零
+- **Queue**: `DelayQueue` Lua poll 脚本提取至共享 `queue/_lua.py`
+- 新增 13 个异步测试
 
-### Stats
-- 336 tests (up from 299), 0 failures
-- 42 files changed, +906 -143 lines
+### 统计
+- 336 tests（从 299 增加），0 failures
+- 42 files changed，+906 -143 lines
 
 ## [0.6.1] - 2026-04-10
 
-### Improved
-- Async unit tests for all modules — coverage 73% → 82%
-- Integration tests with real Redis (Standalone 15 + Sentinel 3 + Cluster 4)
-- docker-compose for local testing (Standalone + Sentinel + Cluster)
-- CI: separate integration test jobs for each topology
-- Added pytest-cov to dev dependencies
+### 改进
+- 全模块异步单元测试 — 覆盖率 73% → 82%
+- 真实 Redis 集成测试（Standalone 15 + Sentinel 3 + Cluster 4）
+- docker-compose 本地测试环境（Standalone + Sentinel + Cluster）
+- CI: 各拓扑独立集成测试 job
+- 添加 pytest-cov 到开发依赖
 
 ## [0.6.0] - 2026-04-10
 
-### Added
-- **Repository** module — structured entity storage with enterprise features:
-  - `BaseModel` — dataclass base with audit metadata (id, version, created_at, updated_at, deleted, deleted_at)
-  - `Repository` / `AsyncRepository` — full CRUD with Redis Hash storage
-  - **Optimistic locking** — Lua-scripted version check, `OptimisticLockError` on conflict
-  - **Soft delete** — `delete()` marks as deleted, `restore()` recovers, `hard_delete()` removes permanently
-  - **Audit fields** — `created_at`/`updated_at` auto-populated on save
-  - **Version history** — `get_history()` returns all previous versions (Redis List)
-  - `find_all()`, `find_including_deleted()` for querying
-  - `RepositoryError`, `EntityNotFoundError`, `OptimisticLockError` exceptions
-- 22 new tests (266 total)
+### 新增
+- **Repository** 模块 — 结构化实体存储：
+  - `BaseModel` — dataclass 基类，含审计元数据（id、version、created_at、updated_at、deleted、deleted_at）
+  - `Repository` / `AsyncRepository` — 完整 CRUD，Redis Hash 存储
+  - **乐观锁** — Lua 脚本版本检查，冲突时抛出 `OptimisticLockError`
+  - **软删除** — `delete()` 标记删除，`restore()` 恢复，`hard_delete()` 永久删除
+  - **审计字段** — `created_at`/`updated_at` 保存时自动填充
+  - **版本历史** — `get_history()` 返回所有历史版本（Redis List）
+  - `find_all()`、`find_including_deleted()` 查询方法
+  - `RepositoryError`、`EntityNotFoundError`、`OptimisticLockError` 异常
+- 新增 22 个测试（共 266 个）
 
 ## [0.5.0] - 2026-04-10
 
-### Added
-- **Redis Streams** module — consumer group abstraction replacing ReliableQueue:
-  - `StreamProducer` / `AsyncStreamProducer` — XADD, XLEN, XTRIM
-  - `StreamConsumer` / `AsyncStreamConsumer` — XREADGROUP with auto/manual ACK, consumer group management
-  - `StreamMessage` — message dataclass with `.ack()` support
-  - `ensure_group()` — idempotent consumer group creation (XGROUP CREATE)
-  - `claim_stale()` — dead letter handling via XAUTOCLAIM
-  - `pending()` — view unacknowledged messages via XPENDING
-  - `StreamError` exception
-- 14 new tests (244 total)
+### 新增
+- **Redis Streams** 模块 — 消费者组抽象：
+  - `StreamProducer` / `AsyncStreamProducer` — XADD、XLEN、XTRIM
+  - `StreamConsumer` / `AsyncStreamConsumer` — XREADGROUP，自动/手动 ACK，消费者组管理
+  - `StreamMessage` — 消息 dataclass，支持 `.ack()`
+  - `ensure_group()` — 幂等创建消费者组（XGROUP CREATE）
+  - `claim_stale()` — 死信恢复（XAUTOCLAIM）
+  - `pending()` — 查看未确认消息（XPENDING）
+  - `StreamError` 异常
+- 新增 14 个测试（共 244 个）
 
 ## [0.4.0] - 2026-04-10
 
-### Added
-- **Tiered Cache** module — L1 (local LRU) + L2 (Redis) two-tier cache:
-  - `LRUCache` — thread-safe, per-entry TTL, LRU eviction, zero dependencies
-  - `TieredCache` / `AsyncTieredCache` — transparent L1→L2 read-through with backfill
-  - Negative caching — short-TTL `_NEGATIVE` marker prevents repeated L2 miss penetration
-  - `get_many` optimization — batch L1 lookup, only missed keys go to L2
-  - Write-through — `set`/`set_many` write both L1 and L2
-  - `invalidate_local()` / `clear_local()` / `local_size` for local cache management
-- 30 new tests (230 total)
+### 新增
+- **多级缓存** 模块 — L1（本地 LRU）+ L2（Redis）两级缓存：
+  - `LRUCache` — 线程安全，逐条 TTL，LRU 驱逐，零依赖
+  - `TieredCache` / `AsyncTieredCache` — 透明 L1→L2 读穿透回填
+  - 负缓存 — 短 TTL `_NEGATIVE` 标记防止重复 L2 miss 穿透
+  - `get_many` 优化 — 批量 L1 查找，仅 miss 的 key 查询 L2
+  - 写穿透 — `set`/`set_many` 同时写 L1 和 L2
+  - `invalidate_local()` / `clear_local()` / `local_size` 本地缓存管理
+- 新增 30 个测试（共 230 个）
 
 ## [0.3.0] - 2026-04-10
 
-### Added
-- **Rate Limiter** module with two algorithms:
-  - `TokenBucketLimiter` / `AsyncTokenBucketLimiter` — smooth traffic with burst tolerance, Lua-scripted atomic operations
-  - `SlidingWindowLimiter` / `AsyncSlidingWindowLimiter` — exact counting with Redis Sorted Set + Lua script
-- `@rate_limit` decorator with DSL parsing (e.g. `"100/minute"`)
-- `RateLimitResult` dataclass (allowed, limit, remaining, retry_after, reset_at) — maps to HTTP rate limit headers
-- `RateLimitExceeded` exception with result context
-- 30 new tests (200 total)
+### 新增
+- **限流器** 模块，两种算法：
+  - `TokenBucketLimiter` / `AsyncTokenBucketLimiter` — 平滑流量，允许突发，Lua 脚本原子操作
+  - `SlidingWindowLimiter` / `AsyncSlidingWindowLimiter` — 精确计数，Redis Sorted Set + Lua 脚本
+- `@rate_limit` 装饰器，DSL 解析（如 `"100/minute"`）
+- `RateLimitResult` dataclass（allowed、limit、remaining、retry_after、reset_at）— 映射 HTTP 限流头
+- `RateLimitExceeded` 异常，携带 result 上下文
+- 新增 30 个测试（共 200 个）
 
 ## [0.2.0] - 2026-04-10
 
-### Added
-- **Sentinel support**: `SentinelConfig` — automatic failover, upstream modules unaware
-- **Cluster support**: `ClusterConfig` — data sharding, multi-key operations auto-degrade
-- `ConnectionManager.topology`, `.is_cluster`, `.is_sentinel` properties
-- `Cache`/`AsyncCache` `is_cluster` parameter — `get_many`/`set_many` auto-degrade to individual operations
-- `Lock`/`AsyncLock` `is_cluster` parameter — keys wrapped in `{hash_tag}` for Lua script slot safety
-- `TopologyConstraintError` exception
-- `group_keys_by_slot()` utility for Cluster multi-key operations
-- 22 new tests (170 total)
+### 新增
+- **Sentinel 支持**: `SentinelConfig` — 自动故障转移，上层模块无感知
+- **Cluster 支持**: `ClusterConfig` — 数据分片，多 key 操作自动降级
+- `ConnectionManager.topology`、`.is_cluster`、`.is_sentinel` 属性
+- `Cache`/`AsyncCache` `is_cluster` 参数 — `get_many`/`set_many` 自动降级为单条操作
+- `Lock`/`AsyncLock` `is_cluster` 参数 — key 使用 `{hash_tag}` 包裹确保 Lua 脚本 slot 安全
+- `TopologyConstraintError` 异常
+- `group_keys_by_slot()` 工具函数
+- 新增 22 个测试（共 170 个）
 
 ## [0.1.1] - 2026-04-10
 
-### Fixed
-- R/W lock now uses Lua scripts for atomic read-acquire/release operations
-- `ReliableQueue._ack()` uses direct `lrem` with raw payload instead of O(N) scan
-- `BloomFilter` and `IDGenerator` now accept configurable key prefix (default unchanged)
+### 修复
+- 读写锁使用 Lua 脚本实现原子 acquire/release 操作
+- `ReliableQueue._ack()` 使用直接 `lrem` 替代 O(N) 扫描
+- `BloomFilter` 和 `IDGenerator` 支持可配置的 key 前缀
 
 ## [0.1.0] - 2026-04-09
 
-### Added
-- **Cache** module: `Cache`, `AsyncCache`, `BoundCache`, `@cached` decorator
-  - TTL string format parsing ("2h30m")
-  - TTL jitter for avalanche protection
-  - Batch operations (`get_many`, `set_many`)
-  - SCAN-based pattern operations (`delete_pattern`, `iter_keys`)
-  - Cache-aside pattern (`remember`)
-  - None value caching (anti-penetration)
-- **Lock** module: `Lock`, `AsyncLock`
-  - Basic distributed lock (SET NX EX + Lua release)
-  - Reentrant lock (Hash-based owner + count)
-  - Read-write lock
-  - Watchdog auto-renewal
-- **Queue** module: `PubSub`, `AsyncPubSub`, `DelayQueue`, `AsyncDelayQueue`, `ReliableQueue`, `AsyncReliableQueue`
-  - DelayQueue via Sorted Set + Lua poll
-  - ReliableQueue via LMOVE + ack/nack
-- **BloomFilter** module: `BloomFilter`, `AsyncBloomFilter`
-  - SHA-256 multi-hash, pipeline-based bit operations
-- **Counter** module: `Counter`, `AsyncCounter`, `IDGenerator`, `AsyncIDGenerator`
-  - BoundCounter for single-key operations
-  - Zero-padded ID generation
-- **Session** module: `SessionManager`, `AsyncSessionManager`
-  - Redis Hash per session, CRUD, TTL refresh
-- **Observability**: `MetricsCollector`, `OpenTelemetryHook` (optional)
-- **Serializers**: `JsonSerializer`, `PickleSerializer`, `MsgpackSerializer` (optional)
-- **Compressors**: `ZlibCompressor`, `ZstdCompressor` (optional), `Lz4Compressor` (optional)
-- **ConnectionManager**: Sync/async views, lazy init, event loop isolation
-- **Exception hierarchy**: `RedisKitError` base + module-specific exceptions
-- **FallbackPolicy**: Configurable degradation ("raise" / "return_none" / "callback")
-- **CommandHook** protocol + `CompositeHook` for extensible observability
+### 新增
+- **Cache** 模块: `Cache`、`AsyncCache`、`BoundCache`、`@cached` 装饰器
+  - TTL 字符串格式解析（"2h30m"）
+  - TTL 抖动防雪崩
+  - 批量操作（`get_many`、`set_many`）
+  - 基于 SCAN 的模式操作（`delete_pattern`、`iter_keys`）
+  - Cache-Aside 模式（`remember`）
+  - None 值缓存（防穿透）
+- **Lock** 模块: `Lock`、`AsyncLock`
+  - 基本分布式锁（SET NX EX + Lua 释放）
+  - 可重入锁（Hash 结构 owner + count）
+  - 读写锁
+  - 看门狗自动续期
+- **Queue** 模块: `PubSub`、`AsyncPubSub`、`DelayQueue`、`AsyncDelayQueue`、`ReliableQueue`、`AsyncReliableQueue`
+  - 延迟队列基于 Sorted Set + Lua poll
+  - 可靠队列基于 LMOVE + ack/nack
+- **BloomFilter** 模块: `BloomFilter`、`AsyncBloomFilter`
+  - SHA-256 多哈希，Pipeline 位操作
+- **Counter** 模块: `Counter`、`AsyncCounter`、`IDGenerator`、`AsyncIDGenerator`
+  - BoundCounter 单 key 操作
+  - 零填充 ID 生成
+- **Session** 模块: `SessionManager`、`AsyncSessionManager`
+  - Redis Hash 会话存储，CRUD，TTL 刷新
+- **可观测性**: `MetricsCollector`、`OpenTelemetryHook`（可选）
+- **序列化器**: `JsonSerializer`、`PickleSerializer`、`MsgpackSerializer`（可选）
+- **压缩器**: `ZlibCompressor`、`ZstdCompressor`（可选）、`Lz4Compressor`（可选）
+- **ConnectionManager**: 同步/异步视图，惰性初始化，事件循环隔离
+- **异常层次结构**: `RedisKitError` 基类 + 模块特定异常
+- **FallbackPolicy**: 可配置降级策略（"raise" / "return_none" / "callback"）
+- **CommandHook** 协议 + `CompositeHook` 可扩展可观测性
