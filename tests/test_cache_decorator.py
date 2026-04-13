@@ -141,6 +141,104 @@ class TestCachedDecorator:
             await async_client.aclose()
 
 
+class TestCachedOnError:
+    """Tests for @cached(on_error='execute') degradation."""
+
+    def setup_method(self):
+        self.client = fakeredis.FakeRedis(decode_responses=False)
+
+    def teardown_method(self):
+        self.client.flushall()
+        self.client.close()
+
+    def test_on_error_rejects_invalid_value(self):
+        with pytest.raises(ValueError, match="on_error"):
+            cached(self.client, key="k:{x}", ttl=60, on_error="invalid")
+
+    def test_on_error_raise_propagates_redis_error(self):
+        """Default on_error='raise' should let Redis errors propagate."""
+        from unittest.mock import patch
+
+        @cached(self.client, key="err:{x}", ttl=60, on_error="raise")
+        def compute(x: int) -> int:
+            return x * 10
+
+        # First call populates cache normally
+        assert compute(1) == 10
+
+        # Simulate Redis failure on read
+        with patch.object(self.client, "get", side_effect=ConnectionError("down")):
+            with pytest.raises(ConnectionError):
+                compute(2)
+
+    def test_on_error_execute_skips_cache_on_read_failure(self):
+        """on_error='execute' should run the function when cache read fails."""
+        from unittest.mock import patch
+
+        call_count = 0
+
+        @cached(self.client, key="safe:{x}", ttl=60, on_error="execute")
+        def compute(x: int) -> int:
+            nonlocal call_count
+            call_count += 1
+            return x * 10
+
+        # Normal path: caches result
+        assert compute(1) == 10
+        assert call_count == 1
+
+        # Simulate Redis failure on read — should execute function directly
+        with patch.object(self.client, "get", side_effect=ConnectionError("down")):
+            result = compute(2)
+            assert result == 20
+            assert call_count == 2
+
+    def test_on_error_execute_skips_cache_on_write_failure(self):
+        """on_error='execute' should still return result even if cache write fails."""
+        from unittest.mock import patch
+
+        @cached(self.client, key="wfail:{x}", ttl=60, on_error="execute")
+        def compute(x: int) -> int:
+            return x * 10
+
+        # Simulate Redis failure on write (setex)
+        with patch.object(self.client, "setex", side_effect=ConnectionError("down")):
+            with patch.object(self.client, "set", side_effect=ConnectionError("down")):
+                result = compute(1)
+                assert result == 10  # function executed, cache write silently failed
+
+    def test_on_error_execute_skips_cache_on_key_resolution_failure(self):
+        """on_error='execute' should execute when key template fails."""
+
+        @cached(self.client, key="bad:{missing_param}", ttl=60, on_error="execute")
+        def compute(x: int) -> int:
+            return x * 10
+
+        # key template references 'missing_param' but function has 'x'
+        result = compute(1)
+        assert result == 10
+
+    @pytest.mark.asyncio
+    async def test_async_on_error_execute(self):
+        """on_error='execute' works for async functions."""
+        from unittest.mock import patch
+
+        async_client = fakeredis.aioredis.FakeRedis(decode_responses=False)
+
+        @cached(async_client, key="async_safe:{x}", ttl=60, on_error="execute")
+        async def compute(x: int) -> int:
+            return x * 10
+
+        try:
+            # Simulate Redis failure
+            with patch.object(async_client, "get", side_effect=ConnectionError("down")):
+                result = await compute(1)
+                assert result == 10
+        finally:
+            await async_client.flushall()
+            await async_client.aclose()
+
+
 def test_cached_with_compressor(redis_client):
     """@cached with compressor should produce data decodable by Cache with same compressor."""
     from redis_kit.cache._logic import DataPipeline

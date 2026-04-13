@@ -222,6 +222,59 @@ class TestReadWriteLock:
                 self.client.delete(writer_key)
                 # Normal exit path -- should detect owner mismatch and raise LockReleaseError
 
+    def test_read_lock_blocking_timeout_succeeds_after_writer_releases(self):
+        """read(blocking_timeout=) should retry and succeed once the writer releases."""
+        import threading
+
+        lock = Lock(self.client, prefix="test:lock")
+        acquired_read = threading.Event()
+
+        def release_write_after_delay():
+            time.sleep(0.1)
+            # Manually delete the writer key to simulate release
+            writer_key = lock._make_key("bt-resource") + ":rwlock:writer"
+            self.client.delete(writer_key)
+
+        # Acquire write lock first
+        writer_key = lock._make_key("bt-resource") + ":rwlock:writer"
+        self.client.set(writer_key, "owner", ex=10)
+
+        # Start thread that will release write lock after 100ms
+        t = threading.Thread(target=release_write_after_delay)
+        t.start()
+
+        # Read lock with blocking_timeout should succeed after writer releases
+        with lock.read("bt-resource", timeout=10, blocking_timeout=1.0):
+            acquired_read.set()
+
+        t.join()
+        assert acquired_read.is_set()
+
+    def test_read_lock_blocking_timeout_fails_when_exceeded(self):
+        """read(blocking_timeout=) should raise LockAcquireError if timeout exceeded."""
+        lock = Lock(self.client, prefix="test:lock")
+        writer_key = lock._make_key("bt-fail") + ":rwlock:writer"
+        self.client.set(writer_key, "other-owner", ex=10)
+
+        with pytest.raises(LockAcquireError, match="writer active"):
+            with lock.read("bt-fail", timeout=10, blocking_timeout=0.15):
+                pass
+
+    def test_write_lock_auto_renew(self):
+        """write(auto_renew=True) should extend the writer key TTL."""
+        lock = Lock(self.client, prefix="test:lock")
+        writer_key = lock._make_key("ar-resource") + ":rwlock:writer"
+
+        with lock.write("ar-resource", timeout=3, auto_renew=True):
+            # Wait for at least one renewal cycle (timeout/3 = 1s)
+            time.sleep(1.5)
+            # Writer key should still exist with refreshed TTL
+            ttl = self.client.ttl(writer_key)
+            assert ttl > 0
+
+        # After context exit, writer key should be gone
+        assert not self.client.exists(writer_key)
+
 
 class TestAsyncReadWriteLock:
     @pytest.fixture(autouse=True)
